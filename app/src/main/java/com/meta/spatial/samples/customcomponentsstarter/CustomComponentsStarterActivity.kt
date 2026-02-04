@@ -31,8 +31,12 @@ import com.meta.spatial.toolkit.GLXFInfo
 import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
+import com.meta.spatial.toolkit.Plane
 import com.meta.spatial.toolkit.Sphere
+import com.meta.spatial.toolkit.Box
 import android.view.View
+import android.animation.ValueAnimator
+import android.view.animation.LinearInterpolator
 import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
 import com.meta.spatial.toolkit.Panel
@@ -57,7 +61,10 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private var gltfxEntity: Entity? = null
   private var skyboxEntity: Entity? = null
   private var environmentEntity: Entity? = null
+  private var fixationEntities = mutableListOf<Entity>()
   private val distractorEntities = mutableListOf<Entity>()
+  private var distractorAnimator: ValueAnimator? = null
+  private val distractorInitialPositions = mutableListOf<Vector3>()
   private val activityScope = CoroutineScope(Dispatchers.Main)
 
   override fun registerFeatures(): List<SpatialFeature> {
@@ -268,6 +275,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               })
         }
         createDistractorsIfNeeded()
+        startDistractorAnimation()
       }
       "Passthrough" -> {
         env?.setComponent(Visible(false))
@@ -285,37 +293,107 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     )
     scene.enablePassthrough(passthrough)
 
-    // Toggle distractors
-    val distractorsVisible = label == "Complex"
+    // Toggle distractors and fixation
+    val isComplex = label == "Complex"
+    if (isComplex) startDistractorAnimation() else stopDistractorAnimation()
+
     for (distractor in distractorEntities) {
-      distractor.setComponent(Visible(distractorsVisible))
+      distractor.setComponent(Visible(isComplex))
     }
+
+    // Fixation cross visibility (visible in all but Indoor room)
+    val needsFixation = label != "Indoor room"
+    if (needsFixation) createFixationIfNeeded()
+    for (fixation in fixationEntities) {
+      fixation.setComponent(Visible(needsFixation))
+    }
+  }
+
+  private fun createFixationIfNeeded() {
+    if (fixationEntities.isNotEmpty()) return
+
+    // Create a simple head-locked fixation cross
+    val horizontal =
+        Entity.create(
+            listOf(
+                Mesh(Uri.parse("mesh://box")),
+                Box(min = Vector3(-0.05f, -0.005f, -0.005f), max = Vector3(0.05f, 0.005f, 0.005f)),
+                Material().apply { baseColor = Color4(1f, 0f, 0f, 1f) }, // Red cross
+                Transform(Pose(Vector3(0f, 0f, -3f))),
+                Visible(true)))
+
+    val vertical =
+        Entity.create(
+            listOf(
+                Mesh(Uri.parse("mesh://box")),
+                Box(min = Vector3(-0.005f, -0.05f, -0.005f), max = Vector3(0.005f, 0.05f, 0.005f)),
+                Material().apply { baseColor = Color4(1f, 0f, 0f, 1f) },
+                Transform(Pose(Vector3(0f, 0f, -3f))),
+                Visible(true)))
+    
+    fixationEntities.add(horizontal)
+    fixationEntities.add(vertical)
   }
 
   private fun createDistractorsIfNeeded() {
     if (distractorEntities.isNotEmpty()) return
 
-    // Create a few simple shapes around the user
-    val positions =
-        listOf(
-            Vector3(2f, 1.5f, -2f),
-            Vector3(-2f, 1.0f, -3f),
-            Vector3(0f, 2.5f, -4f),
-            Vector3(3f, 0.5f, -1f))
+    // Create a "Mondrian Cloud" of colorful quads
+    for (i in 1..20) {
+      val radius = 3f + (Math.random().toFloat() * 2f)
+      val angle = Math.random().toFloat() * 2f * Math.PI.toFloat()
+      val height = (Math.random().toFloat() * 2f) - 1f
+      
+      val x = radius * Math.cos(angle.toDouble()).toFloat()
+      val z = radius * Math.sin(angle.toDouble()).toFloat()
+      val initialPos = Vector3(x, height, z)
 
-    for (pos in positions) {
       val distractor =
           Entity.create(
               listOf(
-                  Mesh(Uri.parse("mesh://sphere")),
-                  Sphere(0.2f),
+                  Mesh(Uri.parse("mesh://plane")),
+                  Plane(width = 0.2f + Math.random().toFloat() * 0.3f, depth = 0.2f + Math.random().toFloat() * 0.3f),
                   Material().apply {
-                    baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), 1f, 1f)
+                    baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 0.7f)
+                    unlit = true
                   },
-                  Transform(Pose(pos)),
+                  Transform(Pose(initialPos)),
                   Visible(true)))
       distractorEntities.add(distractor)
+      distractorInitialPositions.add(initialPos)
     }
+  }
+
+  private fun startDistractorAnimation() {
+    if (distractorAnimator != null) return
+    
+    distractorAnimator = ValueAnimator.ofFloat(0f, 2f * Math.PI.toFloat()).apply {
+      duration = 20000 // 20 seconds for full orbit
+      repeatCount = ValueAnimator.INFINITE
+      interpolator = LinearInterpolator()
+      addUpdateListener { animator ->
+        val offsetAngle = animator.animatedValue as Float
+        for (i in distractorEntities.indices) {
+          val distractor = distractorEntities[i]
+          val initialPos = distractorInitialPositions[i]
+          
+          val radius = Math.sqrt((initialPos.x * initialPos.x + initialPos.z * initialPos.z).toDouble()).toFloat()
+          val baseAngle = Math.atan2(initialPos.z.toDouble(), initialPos.x.toDouble()).toFloat()
+          val currentAngle = baseAngle + offsetAngle
+          
+          val newX = radius * Math.cos(currentAngle.toDouble()).toFloat()
+          val newZ = radius * Math.sin(currentAngle.toDouble()).toFloat()
+          
+          distractor.setComponent(Transform(Pose(Vector3(newX, initialPos.y, newZ))))
+        }
+      }
+      start()
+    }
+  }
+
+  private fun stopDistractorAnimation() {
+    distractorAnimator?.cancel()
+    distractorAnimator = null
   }
 
   private fun loadGLXF(onLoaded: ((GLXFInfo) -> Unit) = {}): Job {
