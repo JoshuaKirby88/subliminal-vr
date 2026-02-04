@@ -22,17 +22,17 @@ enum class ExperimentPhase {
 }
 
 class ExperimentSystem : SystemBase() {
-    var currentPhase = ExperimentPhase.MENU
+    @Volatile var currentPhase = ExperimentPhase.MENU
     
     // Config
-    var flashDurationMs: Int = 100
-    var repetitions: Int = 1
-    var currentRepetition: Int = 0
+    @Volatile var flashDurationMs: Int = 100
+    @Volatile var repetitions: Int = 1
+    @Volatile var currentRepetition: Int = 0
     
     // Timing
-    private var frameCounter: Int = 0
-    private var waitTimeMs: Long = 0
-    private var phaseStartTime: Long = 0
+    @Volatile private var frameCounter: Int = 0
+    @Volatile private var waitTimeMs: Long = 0
+    @Volatile private var phaseStartTime: Long = 0
     
     // Entities
     var panelEntity: Entity? = null
@@ -54,13 +54,17 @@ class ExperimentSystem : SystemBase() {
     override fun execute() {
         val scene = getScene() ?: return
         val viewerPose = scene.getViewerPose()
-        
+        val targetRot = viewerPose.q
+
+        // Layered depths to prevent Z-fighting
+        val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.0f))
+        val maskPosBase = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -0.95f))
+        val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.05f))
+
         // Head-lock logic for message
         messageEntity?.let {
             if (it.getComponent<Visible>()?.isVisible == true) {
-                val forward = viewerPose.q * Vector3(0f, 0f, -2f)
-                val pos = viewerPose.t + forward
-                it.setComponent(Transform(Pose(pos, viewerPose.q)))
+                it.setComponent(Transform(Pose(stimulusPos, targetRot)))
             }
         }
         
@@ -69,9 +73,8 @@ class ExperimentSystem : SystemBase() {
             val entity = maskEntities[i]
             if (entity.getComponent<Visible>()?.isVisible == true) {
                 val offset = maskOffsets[i]
-                val forward = viewerPose.q * offset
-                val pos = viewerPose.t + forward
-                entity.setComponent(Transform(Pose(pos, viewerPose.q)))
+                val pos = maskPosBase + (viewerPose.q * Vector3(offset.x, offset.y, 0f))
+                entity.setComponent(Transform(Pose(pos, targetRot)))
             }
         }
 
@@ -79,10 +82,7 @@ class ExperimentSystem : SystemBase() {
         for (i in fixationEntities.indices) {
             val entity = fixationEntities[i]
             if (entity.getComponent<Visible>()?.isVisible == true) {
-                val offset = fixationOffsets[i]
-                val forward = viewerPose.q * offset
-                val pos = viewerPose.t + forward
-                entity.setComponent(Transform(Pose(pos, viewerPose.q)))
+                entity.setComponent(Transform(Pose(fixationPos, targetRot)))
             }
         }
 
@@ -109,6 +109,7 @@ class ExperimentSystem : SystemBase() {
     }
     
     fun startExperiment(duration: Int, reps: Int, message: String) {
+        Log.d("ExperimentSystem", "START EXPERIMENT: dur=$duration, reps=$reps, refresh=$refreshRate")
         flashDurationMs = duration
         repetitions = reps
         currentRepetition = 0
@@ -198,6 +199,7 @@ class ExperimentSystem : SystemBase() {
     fun showResult(correct: Boolean) {
         currentPhase = ExperimentPhase.MENU
         activityScope.launch {
+            panelEntity?.setComponent(Visible(true))
             testingLayout?.visibility = View.GONE
             resultLayout?.visibility = View.VISIBLE
             val resultText = resultLayout?.findViewById<TextView>(R.id.result_text)
@@ -214,6 +216,7 @@ class ExperimentSystem : SystemBase() {
     fun resetToMenu() {
         currentPhase = ExperimentPhase.MENU
         activityScope.launch {
+            panelEntity?.setComponent(Visible(true))
             settingsLayout?.visibility = View.VISIBLE
             testingLayout?.visibility = View.GONE
             resultLayout?.visibility = View.GONE

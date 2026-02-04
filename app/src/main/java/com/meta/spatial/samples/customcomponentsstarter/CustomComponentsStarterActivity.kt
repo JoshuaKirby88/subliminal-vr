@@ -32,9 +32,9 @@ import com.meta.spatial.toolkit.GLXFInfo
 import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
-import com.meta.spatial.toolkit.Plane
-import com.meta.spatial.toolkit.Sphere
-import com.meta.spatial.toolkit.Box
+import com.meta.spatial.toolkit.Quad
+import com.meta.spatial.toolkit.PanelDimensions
+import com.meta.spatial.core.Vector2
 import android.view.View
 import android.animation.ValueAnimator
 import android.view.animation.LinearInterpolator
@@ -49,6 +49,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import com.meta.spatial.toolkit.PanelRegistration
 
+import com.meta.spatial.toolkit.Scale
 import com.meta.spatial.toolkit.Transform
 import com.meta.spatial.vr.VRFeature
 import java.io.File
@@ -129,6 +130,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
       // Link the panel entity from GLXF to our registration
       val panelEntity = composition.getNodeByName("Panel").entity
       panelEntity?.setComponent(Panel(R.id.main_panel))
+      experimentSystem.panelEntity = panelEntity
 
       updateEnvironment("Indoor room")
     }
@@ -275,7 +277,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     experimentSystem.messageEntity = Entity.create(
         listOf(
             Panel(R.id.flash_panel),
-            Transform(Pose(Vector3(0f, 0f, -2f))),
+            PanelDimensions(Vector2(2f, 1f)),
+            Transform(Pose(Vector3(0f, 0f, -1.05f))),
             Visible(false)
         )
     )
@@ -283,24 +286,33 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     createFixationIfNeeded()
     createMaskEntities()
     
+    // Ensure lists are synchronized
+    experimentSystem.fixationEntities.clear()
+    experimentSystem.fixationEntities.addAll(fixationEntities)
+    
     updateEnvironment("Indoor room")
   }
 
   private fun createMaskEntities() {
     if (experimentSystem.maskEntities.isNotEmpty()) return
 
-    // Create a "Mondrian Mask" of colorful quads
-    for (i in 1..30) {
-      val x = (Math.random().toFloat() * 2f) - 1f
-      val y = (Math.random().toFloat() * 1.5f) - 0.75f
-      val z = -1.95f // Just in front of the message
+    // Create a "Mondrian Mask" of colorful quads - enlarged for debug visibility
+    // Using mesh://quad + Quad() + Scale for absolute stability
+    for (i in 1..40) {
+      val x = (Math.random().toFloat() * 3f) - 1.5f
+      val y = (Math.random().toFloat() * 2f) - 1f
+      val z = -1.45f 
       val offset = Vector3(x, y, z)
       
+      val width = 0.3f + Math.random().toFloat() * 0.6f
+      val height = 0.3f + Math.random().toFloat() * 0.6f
+
       val mask =
           Entity.create(
               listOf(
-                  Mesh(Uri.parse("mesh://plane")),
-                  Plane(width = 0.1f + Math.random().toFloat() * 0.4f, depth = 0.1f + Math.random().toFloat() * 0.4f),
+                  Mesh(Uri.parse("mesh://quad")),
+                  Quad(),
+                  Scale(Vector3(width, height, 1f)),
                   Material().apply {
                     baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 1.0f)
                     unlit = true
@@ -384,14 +396,16 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
     // Toggle distractors and fixation
     val isComplex = label == "Complex"
+    val isExperimentActive = experimentSystem.currentPhase != ExperimentPhase.MENU
+    
     if (isComplex) startDistractorAnimation() else stopDistractorAnimation()
 
     for (distractor in distractorEntities) {
       distractor.setComponent(Visible(isComplex))
     }
 
-    // Fixation cross visibility (visible in all but Indoor room)
-    val needsFixation = label != "Indoor room"
+    // Fixation cross visibility (visible in all but Indoor room, UNLESS experiment is active)
+    val needsFixation = label != "Indoor room" || isExperimentActive
     if (needsFixation) createFixationIfNeeded()
     for (fixation in fixationEntities) {
       fixation.setComponent(Visible(needsFixation))
@@ -401,38 +415,39 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private fun createFixationIfNeeded() {
     if (fixationEntities.isNotEmpty()) return
 
-    // Create a simple head-locked fixation cross
+    // Create a simple head-locked fixation cross - using mesh://quad + Quad() for maximum stability
     val horizontal =
         Entity.create(
             listOf(
-                Mesh(Uri.parse("mesh://box")),
-                Box(min = Vector3(-0.05f, -0.005f, -0.005f), max = Vector3(0.05f, 0.005f, 0.005f)),
-                Material().apply { baseColor = Color4(1f, 0f, 0f, 1f) }, // Red cross
-                Transform(Pose(Vector3(0f, 0f, -3f))),
+                Mesh(Uri.parse("mesh://quad")),
+                Quad(),
+                Scale(Vector3(0.3f, 0.02f, 1f)),
+                Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true }, // Neon Green
+                Transform(Pose(Vector3(0f, 0f, -1f))),
                 Visible(true)))
 
     val vertical =
         Entity.create(
             listOf(
-                Mesh(Uri.parse("mesh://box")),
-                Box(min = Vector3(-0.005f, -0.05f, -0.005f), max = Vector3(0.005f, 0.05f, 0.005f)),
-                Material().apply { baseColor = Color4(1f, 0f, 0f, 1f) },
-                Transform(Pose(Vector3(0f, 0f, -3f))),
+                Mesh(Uri.parse("mesh://quad")),
+                Quad(),
+                Scale(Vector3(0.02f, 0.3f, 1f)),
+                Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true },
+                Transform(Pose(Vector3(0f, 0f, -1f))),
                 Visible(true)))
     
     fixationEntities.add(horizontal)
     fixationEntities.add(vertical)
-    experimentSystem.fixationEntities.addAll(fixationEntities)
-    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -3f))
-    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -3f))
+    experimentSystem.fixationOffsets.clear()
+    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -1f))
+    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -1f))
   }
 
   private fun createDistractorsIfNeeded() {
     if (distractorEntities.isNotEmpty()) return
 
-    val primitives = listOf("mesh://box", "mesh://sphere", "mesh://plane")
-    
     // Create "Geometric Flux" - a dense, abstract cloud of 200 distractors
+    // Using mesh://quad for absolute stability and to avoid procedural mesh crashes
     for (i in 1..200) {
       val radius = 1.5f + (Math.random().toFloat() * 4.5f)
       val theta = Math.random().toFloat() * Math.PI.toFloat()
@@ -442,10 +457,13 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
       val rotationAxis = Vector3(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat()).normalize()
       val rotationSpeed = (Math.random().toFloat() * 250f) + 100f
 
-      val meshUri = primitives.random()
+      val size = 0.15f + (Math.random().toFloat() * 0.15f)
+      
       val distractor = Entity.create(
           listOf(
-              Mesh(Uri.parse(meshUri)),
+              Mesh(Uri.parse("mesh://quad")),
+              Quad(),
+              Scale(Vector3(size, size, 1f)),
               Material().apply {
                 baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 1.0f)
                 unlit = true
@@ -453,12 +471,6 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               Transform(Pose(sphericalToCartesian(radius, theta, phi))),
               Visible(true)))
       
-      when (meshUri) {
-        "mesh://box" -> distractor.setComponent(Box(min = Vector3(-0.15f), max = Vector3(0.15f)))
-        "mesh://sphere" -> distractor.setComponent(Sphere(0.15f))
-        "mesh://plane" -> distractor.setComponent(Plane(width = 0.3f, depth = 0.3f))
-      }
-
       distractorEntities.add(distractor)
       distractorRadii.add(radius)
       distractorThetas.add(theta)
