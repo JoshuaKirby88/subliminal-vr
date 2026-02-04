@@ -29,7 +29,18 @@ import com.meta.spatial.toolkit.GLXFInfo
 import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
+import android.view.View
+import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
+import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
+import com.meta.spatial.toolkit.Panel
+import com.meta.spatial.toolkit.PanelStyleOptions
+import com.meta.spatial.toolkit.QuadShapeOptions
+import com.meta.spatial.toolkit.UIPanelSettings
+import android.widget.Button
+import android.widget.SeekBar
+import android.widget.TextView
 import com.meta.spatial.toolkit.PanelRegistration
+
 import com.meta.spatial.toolkit.Transform
 import com.meta.spatial.vr.VRFeature
 import java.io.File
@@ -84,24 +95,80 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
       environmentMesh?.defaultShaderOverride = SceneMaterial.UNLIT_SHADER
       environmentEntity?.setComponent(environmentMesh!!)
 
-      // TODO: get the robot and the basketBall entities from the composition
+      // Link the panel entity from GLXF to our registration
+      val panelEntity = composition.getNodeByName("Panel").entity
+      panelEntity?.setComponent(Panel(R.id.main_panel))
     }
+
   }
 
   override fun registerPanels(): List<PanelRegistration> {
     return listOf(
-        PanelRegistration(R.layout.ui_example) { entity ->
-          config {
-            themeResourceId = R.style.PanelAppThemeTransparent
-            includeGlass = false
-            width = 2.0f
-            height = 1.5f
-            layerConfig = LayerConfig()
-            enableTransparent = true
-          }
-        }
-    )
+        LayoutXMLPanelRegistration(
+            R.id.main_panel,
+            layoutIdCreator = { R.layout.ui_example },
+            settingsCreator = {
+              UIPanelSettings(
+                  shape = QuadShapeOptions(width = 2.0f, height = 1.5f),
+                  style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent))
+            },
+            panelSetupWithRootView = { rootView, _, _ ->
+              val backgroundBtn = rootView.findViewById<Button>(R.id.background_selector_btn)
+              val displayBtn = rootView.findViewById<Button>(R.id.display_type_selector_btn)
+              val durationSlider = rootView.findViewById<SeekBar>(R.id.duration_slider)
+              val durationText = rootView.findViewById<TextView>(R.id.duration_value_text)
+              val repetitionSlider = rootView.findViewById<SeekBar>(R.id.repetition_slider)
+              val repetitionText = rootView.findViewById<TextView>(R.id.repetition_value_text)
+
+              // Initialize slider values
+              durationSlider?.progress = 85 // 100ms
+              durationText?.text = "100"
+              repetitionSlider?.progress = 0 // 1 repetition
+              repetitionText?.text = "1"
+
+              durationSlider?.setOnSeekBarChangeListener(
+                  object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                        seekBar: SeekBar?,
+                        progress: Int,
+                        fromUser: Boolean
+                    ) {
+                      durationText?.text = (progress + 15).toString()
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                  })
+
+              repetitionSlider?.setOnSeekBarChangeListener(
+                  object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                        seekBar: SeekBar?,
+                        progress: Int,
+                        fromUser: Boolean
+                    ) {
+                      repetitionText?.text = (progress + 1).toString()
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                  })
+
+              // Custom Cycling Selector Logic
+              val backgroundOptions = resources.getStringArray(R.array.background_options)
+              var currentBgIndex = 0
+              backgroundBtn?.setOnClickListener {
+                currentBgIndex = (currentBgIndex + 1) % backgroundOptions.size
+                backgroundBtn.text = backgroundOptions[currentBgIndex]
+              }
+
+              val displayOptions = resources.getStringArray(R.array.display_type_options)
+              var currentDisplayIndex = 0
+              displayBtn?.setOnClickListener {
+                currentDisplayIndex = (currentDisplayIndex + 1) % displayOptions.size
+                displayBtn.text = displayOptions[currentDisplayIndex]
+              }
+            }))
   }
+
 
   override fun onSceneReady() {
     super.onSceneReady()

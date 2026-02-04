@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string name="app_name">LookAt</string>
+  <string name="app_name">Subliminal Tester</string>
+  <string-array name="background_options">
+    <item>Black void</item>
+    <item>White void</item>
+    <item>Landscape</item>
+    <item>Complex</item>
+  </string-array>
+  <string-array name="display_type_options">
+    <item>White on Black</item>
+    <item>Black on White</item>
+    <item>Green on Black</item>
+    <item>Red on Black</item>
+  </string-array>
 </resources>
