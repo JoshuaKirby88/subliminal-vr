@@ -86,7 +86,7 @@ spatial {
     hotReload {
       appPackage.set("com.meta.spatial.samples.customcomponentsstarter")
       appMainActivity.set(".CustomComponentsStarterActivity")
-      assetsDir.set(File("src/main/assets"))
+      assetsDir.set(File("src/main"))
     }
   }
 }
