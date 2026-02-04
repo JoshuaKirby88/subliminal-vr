@@ -66,6 +66,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private var distractorAnimator: ValueAnimator? = null
   private val distractorInitialPositions = mutableListOf<Vector3>()
   private val activityScope = CoroutineScope(Dispatchers.Main)
+  private val experimentSystem = ExperimentSystem()
 
   override fun registerFeatures(): List<SpatialFeature> {
     val features = mutableListOf<SpatialFeature>(VRFeature(this))
@@ -99,7 +100,17 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
         OkHttpAssetFetcher(),
     )
 
-    // TODO: register the LookAt system and component
+    componentManager.registerComponent<LookAt>(LookAt.Companion)
+    systemManager.registerSystem(LookAtSystem())
+    systemManager.registerSystem(experimentSystem)
+
+    val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        this.display
+    } else {
+        @Suppress("DEPRECATION")
+        windowManager.defaultDisplay
+    }
+    experimentSystem.refreshRate = display?.refreshRate ?: 90f
 
     loadGLXF { composition ->
       // set the environment to be unlit
@@ -134,6 +145,15 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               val durationText = rootView.findViewById<TextView>(R.id.duration_value_text)
               val repetitionSlider = rootView.findViewById<SeekBar>(R.id.repetition_slider)
               val repetitionText = rootView.findViewById<TextView>(R.id.repetition_value_text)
+              val startBtn = rootView.findViewById<Button>(R.id.start_button)
+
+              val settingsLayout = rootView.findViewById<View>(R.id.settings_layout)
+              val testingLayout = rootView.findViewById<View>(R.id.testing_layout)
+              val resultLayout = rootView.findViewById<View>(R.id.result_layout)
+
+              experimentSystem.settingsLayout = settingsLayout
+              experimentSystem.testingLayout = testingLayout
+              experimentSystem.resultLayout = resultLayout
 
               // Initialize slider values
               durationSlider?.progress = 85 // 100ms
@@ -183,7 +203,37 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 currentDisplayIndex = (currentDisplayIndex + 1) % displayOptions.size
                 displayBtn.text = displayOptions[currentDisplayIndex]
               }
-            }))
+
+              startBtn?.setOnClickListener {
+                val duration = durationSlider.progress + 15
+                val reps = repetitionSlider.progress + 1
+                experimentSystem.startExperiment(duration, reps, "")
+              }
+
+              rootView.findViewById<Button>(R.id.guess_button_1)?.setOnClickListener { btn ->
+                experimentSystem.handleGuess((btn as Button).text.toString())
+              }
+              rootView.findViewById<Button>(R.id.guess_button_2)?.setOnClickListener { btn ->
+                experimentSystem.handleGuess((btn as Button).text.toString())
+              }
+              rootView.findViewById<Button>(R.id.guess_button_3)?.setOnClickListener { btn ->
+                experimentSystem.handleGuess((btn as Button).text.toString())
+              }
+              rootView.findViewById<Button>(R.id.reset_button)?.setOnClickListener { experimentSystem.resetToMenu() }
+            }),
+        LayoutXMLPanelRegistration(
+            R.id.flash_panel,
+            layoutIdCreator = { R.layout.ui_flash },
+            settingsCreator = {
+              UIPanelSettings(
+                  shape = QuadShapeOptions(width = 2.0f, height = 1.0f),
+                  style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent))
+            },
+            panelSetupWithRootView = { rootView, _, _ ->
+              experimentSystem.flashTextView = rootView.findViewById(R.id.flash_text)
+            }
+        )
+    )
   }
 
 
@@ -215,7 +265,44 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             )
         )
     
+    experimentSystem.messageEntity = Entity.create(
+        listOf(
+            Panel(R.id.flash_panel),
+            Transform(Pose(Vector3(0f, 0f, -2f))),
+            Visible(false)
+        )
+    )
+
+    createFixationIfNeeded()
+    createMaskEntities()
+    
     updateEnvironment("Indoor room")
+  }
+
+  private fun createMaskEntities() {
+    if (experimentSystem.maskEntities.isNotEmpty()) return
+
+    // Create a "Mondrian Mask" of colorful quads
+    for (i in 1..30) {
+      val x = (Math.random().toFloat() * 2f) - 1f
+      val y = (Math.random().toFloat() * 1.5f) - 0.75f
+      val z = -1.95f // Just in front of the message
+      val offset = Vector3(x, y, z)
+      
+      val mask =
+          Entity.create(
+              listOf(
+                  Mesh(Uri.parse("mesh://plane")),
+                  Plane(width = 0.1f + Math.random().toFloat() * 0.4f, depth = 0.1f + Math.random().toFloat() * 0.4f),
+                  Material().apply {
+                    baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 1.0f)
+                    unlit = true
+                  },
+                  Transform(Pose(offset)),
+                  Visible(false)))
+      experimentSystem.maskEntities.add(mask)
+      experimentSystem.maskOffsets.add(offset)
+    }
   }
 
   private fun updateEnvironment(label: String) {
@@ -333,6 +420,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     
     fixationEntities.add(horizontal)
     fixationEntities.add(vertical)
+    experimentSystem.fixationEntities.addAll(fixationEntities)
+    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -3f))
+    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -3f))
   }
 
   private fun createDistractorsIfNeeded() {
