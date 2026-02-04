@@ -13,6 +13,7 @@ import com.meta.spatial.castinputforward.CastInputForwardFeature
 import com.meta.spatial.core.Color4
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.Pose
+import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.SpatialFeature
 import com.meta.spatial.core.Vector3
 import com.meta.spatial.toolkit.Visible
@@ -64,7 +65,13 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private var fixationEntities = mutableListOf<Entity>()
   private val distractorEntities = mutableListOf<Entity>()
   private var distractorAnimator: ValueAnimator? = null
-  private val distractorInitialPositions = mutableListOf<Vector3>()
+  private val distractorRadii = mutableListOf<Float>()
+  private val distractorThetas = mutableListOf<Float>()
+  private val distractorPhis = mutableListOf<Float>()
+  private val distractorOrbitSpeeds = mutableListOf<Float>()
+  private val distractorRotationAxes = mutableListOf<Vector3>()
+  private val distractorRotationSpeeds = mutableListOf<Float>()
+  private var animationStartTime: Long = 0
   private val activityScope = CoroutineScope(Dispatchers.Main)
   private val experimentSystem = ExperimentSystem()
 
@@ -352,15 +359,10 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
         }
       }
       "Complex" -> {
-        env?.setComponent(Visible(true))
-        if (sky != null) {
-          sky.setComponent(Visible(true))
-          sky.setComponent(
-              Material().apply {
-                baseTextureAndroidResourceId = R.drawable.skydome
-                unlit = true
-              })
-        }
+        env?.setComponent(Visible(false))
+        sky?.setComponent(Visible(false))
+        sunColor = Vector3(0f)
+        envIntensity = 0f
         createDistractorsIfNeeded()
         startDistractorAnimation()
       }
@@ -428,53 +430,79 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private fun createDistractorsIfNeeded() {
     if (distractorEntities.isNotEmpty()) return
 
-    // Create a "Mondrian Cloud" of colorful quads
-    for (i in 1..20) {
-      val radius = 3f + (Math.random().toFloat() * 2f)
-      val angle = Math.random().toFloat() * 2f * Math.PI.toFloat()
-      val height = (Math.random().toFloat() * 2f) - 1f
+    val primitives = listOf("mesh://box", "mesh://sphere", "mesh://plane")
+    
+    // Create "Geometric Flux" - a dense, abstract cloud of 200 distractors
+    for (i in 1..200) {
+      val radius = 1.5f + (Math.random().toFloat() * 4.5f)
+      val theta = Math.random().toFloat() * Math.PI.toFloat()
+      val phi = Math.random().toFloat() * 2f * Math.PI.toFloat()
       
-      val x = radius * Math.cos(angle.toDouble()).toFloat()
-      val z = radius * Math.sin(angle.toDouble()).toFloat()
-      val initialPos = Vector3(x, height, z)
+      val orbitSpeed = (Math.random().toFloat() - 0.5f) * 1.2f
+      val rotationAxis = Vector3(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat()).normalize()
+      val rotationSpeed = (Math.random().toFloat() * 250f) + 100f
 
-      val distractor =
-          Entity.create(
-              listOf(
-                  Mesh(Uri.parse("mesh://plane")),
-                  Plane(width = 0.2f + Math.random().toFloat() * 0.3f, depth = 0.2f + Math.random().toFloat() * 0.3f),
-                  Material().apply {
-                    baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 0.7f)
-                    unlit = true
-                  },
-                  Transform(Pose(initialPos)),
-                  Visible(true)))
+      val meshUri = primitives.random()
+      val distractor = Entity.create(
+          listOf(
+              Mesh(Uri.parse(meshUri)),
+              Material().apply {
+                baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 1.0f)
+                unlit = true
+              },
+              Transform(Pose(sphericalToCartesian(radius, theta, phi))),
+              Visible(true)))
+      
+      when (meshUri) {
+        "mesh://box" -> distractor.setComponent(Box(min = Vector3(-0.15f), max = Vector3(0.15f)))
+        "mesh://sphere" -> distractor.setComponent(Sphere(0.15f))
+        "mesh://plane" -> distractor.setComponent(Plane(width = 0.3f, depth = 0.3f))
+      }
+
       distractorEntities.add(distractor)
-      distractorInitialPositions.add(initialPos)
+      distractorRadii.add(radius)
+      distractorThetas.add(theta)
+      distractorPhis.add(phi)
+      distractorOrbitSpeeds.add(orbitSpeed)
+      distractorRotationAxes.add(rotationAxis)
+      distractorRotationSpeeds.add(rotationSpeed)
     }
+  }
+
+  private fun sphericalToCartesian(r: Float, theta: Float, phi: Float): Vector3 {
+    val x = r * Math.sin(theta.toDouble()).toFloat() * Math.sin(phi.toDouble()).toFloat()
+    val y = r * Math.cos(theta.toDouble()).toFloat()
+    val z = r * Math.sin(theta.toDouble()).toFloat() * Math.cos(phi.toDouble()).toFloat()
+    return Vector3(x, y, z)
   }
 
   private fun startDistractorAnimation() {
     if (distractorAnimator != null) return
     
-    distractorAnimator = ValueAnimator.ofFloat(0f, 2f * Math.PI.toFloat()).apply {
-      duration = 20000 // 20 seconds for full orbit
+    animationStartTime = System.currentTimeMillis()
+    distractorAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+      duration = 1000 // Just to keep the listener pumping
       repeatCount = ValueAnimator.INFINITE
       interpolator = LinearInterpolator()
-      addUpdateListener { animator ->
-        val offsetAngle = animator.animatedValue as Float
+      addUpdateListener { _ ->
+        val elapsedSeconds = (System.currentTimeMillis() - animationStartTime) / 1000f
         for (i in distractorEntities.indices) {
           val distractor = distractorEntities[i]
-          val initialPos = distractorInitialPositions[i]
           
-          val radius = Math.sqrt((initialPos.x * initialPos.x + initialPos.z * initialPos.z).toDouble()).toFloat()
-          val baseAngle = Math.atan2(initialPos.z.toDouble(), initialPos.x.toDouble()).toFloat()
-          val currentAngle = baseAngle + offsetAngle
+          val r = distractorRadii[i]
+          val theta = distractorThetas[i]
+          // phi orbits over time
+          val phi = distractorPhis[i] + (distractorOrbitSpeeds[i] * elapsedSeconds)
           
-          val newX = radius * Math.cos(currentAngle.toDouble()).toFloat()
-          val newZ = radius * Math.sin(currentAngle.toDouble()).toFloat()
+          val pos = sphericalToCartesian(r, theta, phi)
           
-          distractor.setComponent(Transform(Pose(Vector3(newX, initialPos.y, newZ))))
+          val axis = distractorRotationAxes[i]
+          val rotSpeed = distractorRotationSpeeds[i]
+          // Rotation in degrees
+          val currentRotation = rotSpeed * elapsedSeconds
+          val rotation = Quaternion(axis.x * currentRotation, axis.y * currentRotation, axis.z * currentRotation)
+          
+          distractor.setComponent(Transform(Pose(pos, rotation)))
         }
       }
       start()

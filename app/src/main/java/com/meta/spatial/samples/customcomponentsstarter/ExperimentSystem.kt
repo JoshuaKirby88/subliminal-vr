@@ -35,6 +35,7 @@ class ExperimentSystem : SystemBase() {
     private var phaseStartTime: Long = 0
     
     // Entities
+    var panelEntity: Entity? = null
     var messageEntity: Entity? = null
     val maskEntities = mutableListOf<Entity>()
     val maskOffsets = mutableListOf<Vector3>()
@@ -127,6 +128,7 @@ class ExperimentSystem : SystemBase() {
             // Store target for verification
             testingLayout?.tag = correctMessage
 
+            panelEntity?.setComponent(Visible(false))
             settingsLayout?.visibility = View.GONE
             testingLayout?.visibility = View.GONE
             resultLayout?.visibility = View.GONE
@@ -188,6 +190,7 @@ class ExperimentSystem : SystemBase() {
         setFixationVisible(false)
         
         activityScope.launch {
+            panelEntity?.setComponent(Visible(true))
             testingLayout?.visibility = View.VISIBLE
         }
     }
