@@ -10,10 +10,12 @@ package com.meta.spatial.samples.customcomponentsstarter
 import android.net.Uri
 import android.os.Bundle
 import com.meta.spatial.castinputforward.CastInputForwardFeature
+import com.meta.spatial.core.Color4
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.SpatialFeature
 import com.meta.spatial.core.Vector3
+import com.meta.spatial.toolkit.Visible
 import com.meta.spatial.datamodelinspector.DataModelInspectorFeature
 import com.meta.spatial.debugtools.HotReloadFeature
 import com.meta.spatial.okhttp3.OkHttpAssetFetcher
@@ -52,6 +54,8 @@ import kotlinx.coroutines.launch
 // default activity
 class CustomComponentsStarterActivity : AppSystemActivity() {
   private var gltfxEntity: Entity? = null
+  private var skyboxEntity: Entity? = null
+  private var environmentEntity: Entity? = null
   private val activityScope = CoroutineScope(Dispatchers.Main)
 
   override fun registerFeatures(): List<SpatialFeature> {
@@ -90,7 +94,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
     loadGLXF { composition ->
       // set the environment to be unlit
-      val environmentEntity: Entity? = composition.getNodeByName("Environment").entity
+      environmentEntity = composition.getNodeByName("Environment").entity
       val environmentMesh = environmentEntity?.getComponent<Mesh>()
       environmentMesh?.defaultShaderOverride = SceneMaterial.UNLIT_SHADER
       environmentEntity?.setComponent(environmentMesh!!)
@@ -98,6 +102,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
       // Link the panel entity from GLXF to our registration
       val panelEntity = composition.getNodeByName("Panel").entity
       panelEntity?.setComponent(Panel(R.id.main_panel))
+
+      updateEnvironment("Indoor room")
     }
 
   }
@@ -157,7 +163,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               var currentBgIndex = 0
               backgroundBtn?.setOnClickListener {
                 currentBgIndex = (currentBgIndex + 1) % backgroundOptions.size
-                backgroundBtn.text = backgroundOptions[currentBgIndex]
+                val selectedOption = backgroundOptions[currentBgIndex]
+                backgroundBtn.text = selectedOption
+                updateEnvironment(selectedOption)
               }
 
               val displayOptions = resources.getStringArray(R.array.display_type_options)
@@ -186,16 +194,62 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
     scene.setViewOrigin(0.0f, 0.0f, -1.0f, 0.0f)
 
-    Entity.create(
-        listOf(
-            Mesh(Uri.parse("mesh://skybox"), hittable = MeshCollision.NoCollision),
+    skyboxEntity =
+        Entity.create(
+            listOf(
+                Mesh(Uri.parse("mesh://skybox"), hittable = MeshCollision.NoCollision),
+                Material().apply {
+                  baseTextureAndroidResourceId = R.drawable.skydome
+                  unlit = true // Prevent scene lighting from affecting the skybox
+                },
+                Transform(Pose(Vector3(x = 0f, y = 0f, z = 0f))),
+            )
+        )
+    
+    updateEnvironment("Indoor room")
+  }
+
+  private fun updateEnvironment(label: String) {
+    val env = environmentEntity
+    val sky = skyboxEntity ?: return
+
+    when (label) {
+      "Indoor room" -> {
+        env?.setComponent(Visible(true))
+        sky.setComponent(Visible(false))
+      }
+      "Black void" -> {
+        env?.setComponent(Visible(false))
+        sky.setComponent(Visible(false))
+      }
+      "White void" -> {
+        env?.setComponent(Visible(false))
+        sky.setComponent(Visible(true))
+        sky.setComponent(
+            Material().apply {
+              baseColor = Color4(1f, 1f, 1f, 1f)
+              unlit = true
+            })
+      }
+      "Landscape" -> {
+        env?.setComponent(Visible(false))
+        sky.setComponent(Visible(true))
+        sky.setComponent(
             Material().apply {
               baseTextureAndroidResourceId = R.drawable.skydome
-              unlit = true // Prevent scene lighting from affecting the skybox
-            },
-            Transform(Pose(Vector3(x = 0f, y = 0f, z = 0f))),
-        )
-    )
+              unlit = true
+            })
+      }
+      "Complex" -> {
+        env?.setComponent(Visible(true))
+        sky.setComponent(Visible(true))
+        sky.setComponent(
+            Material().apply {
+              baseTextureAndroidResourceId = R.drawable.skydome
+              unlit = true
+            })
+      }
+    }
   }
 
   private fun loadGLXF(onLoaded: ((GLXFInfo) -> Unit) = {}): Job {
