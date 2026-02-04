@@ -7,6 +7,7 @@
     <item>White void</item>
     <item>Landscape</item>
     <item>Complex</item>
+    <item>Passthrough</item>
   </string-array>
   <string-array name="display_type_options">
     <item>White on Black</item>

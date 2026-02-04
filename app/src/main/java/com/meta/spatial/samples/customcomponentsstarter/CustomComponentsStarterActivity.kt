@@ -31,6 +31,7 @@ import com.meta.spatial.toolkit.GLXFInfo
 import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
+import com.meta.spatial.toolkit.Sphere
 import android.view.View
 import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
@@ -56,6 +57,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private var gltfxEntity: Entity? = null
   private var skyboxEntity: Entity? = null
   private var environmentEntity: Entity? = null
+  private val distractorEntities = mutableListOf<Entity>()
   private val activityScope = CoroutineScope(Dispatchers.Main)
 
   override fun registerFeatures(): List<SpatialFeature> {
@@ -211,44 +213,108 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
   private fun updateEnvironment(label: String) {
     val env = environmentEntity
-    val sky = skyboxEntity ?: return
+    val sky = skyboxEntity
+
+    // Default lighting values
+    var ambientColor = Vector3(0f)
+    var sunColor = Vector3(7.0f, 7.0f, 7.0f)
+    var envIntensity = 0.3f
+    var passthrough = false
 
     when (label) {
       "Indoor room" -> {
         env?.setComponent(Visible(true))
-        sky.setComponent(Visible(false))
+        sky?.setComponent(Visible(false))
       }
       "Black void" -> {
         env?.setComponent(Visible(false))
-        sky.setComponent(Visible(false))
+        sky?.setComponent(Visible(false))
+        sunColor = Vector3(0f)
+        envIntensity = 0f
       }
       "White void" -> {
         env?.setComponent(Visible(false))
-        sky.setComponent(Visible(true))
-        sky.setComponent(
-            Material().apply {
-              baseColor = Color4(1f, 1f, 1f, 1f)
-              unlit = true
-            })
+        if (sky != null) {
+          sky.setComponent(Visible(true))
+          sky.setComponent(
+              Material().apply {
+                baseColor = Color4(1f, 1f, 1f, 1f)
+                unlit = true
+              })
+        }
+        ambientColor = Vector3(1f)
+        sunColor = Vector3(0f)
+        envIntensity = 0f
       }
       "Landscape" -> {
         env?.setComponent(Visible(false))
-        sky.setComponent(Visible(true))
-        sky.setComponent(
-            Material().apply {
-              baseTextureAndroidResourceId = R.drawable.skydome
-              unlit = true
-            })
+        if (sky != null) {
+          sky.setComponent(Visible(true))
+          sky.setComponent(
+              Material().apply {
+                baseTextureAndroidResourceId = R.drawable.skydome
+                unlit = true
+              })
+        }
       }
       "Complex" -> {
         env?.setComponent(Visible(true))
-        sky.setComponent(Visible(true))
-        sky.setComponent(
-            Material().apply {
-              baseTextureAndroidResourceId = R.drawable.skydome
-              unlit = true
-            })
+        if (sky != null) {
+          sky.setComponent(Visible(true))
+          sky.setComponent(
+              Material().apply {
+                baseTextureAndroidResourceId = R.drawable.skydome
+                unlit = true
+              })
+        }
+        createDistractorsIfNeeded()
       }
+      "Passthrough" -> {
+        env?.setComponent(Visible(false))
+        sky?.setComponent(Visible(false))
+        passthrough = true
+      }
+    }
+
+    // Apply lighting
+    scene.setLightingEnvironment(
+        ambientColor = ambientColor,
+        sunColor = sunColor,
+        sunDirection = -Vector3(1.0f, 3.0f, -2.0f),
+        environmentIntensity = envIntensity,
+    )
+    scene.enablePassthrough(passthrough)
+
+    // Toggle distractors
+    val distractorsVisible = label == "Complex"
+    for (distractor in distractorEntities) {
+      distractor.setComponent(Visible(distractorsVisible))
+    }
+  }
+
+  private fun createDistractorsIfNeeded() {
+    if (distractorEntities.isNotEmpty()) return
+
+    // Create a few simple shapes around the user
+    val positions =
+        listOf(
+            Vector3(2f, 1.5f, -2f),
+            Vector3(-2f, 1.0f, -3f),
+            Vector3(0f, 2.5f, -4f),
+            Vector3(3f, 0.5f, -1f))
+
+    for (pos in positions) {
+      val distractor =
+          Entity.create(
+              listOf(
+                  Mesh(Uri.parse("mesh://sphere")),
+                  Sphere(0.2f),
+                  Material().apply {
+                    baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), 1f, 1f)
+                  },
+                  Transform(Pose(pos)),
+                  Visible(true)))
+      distractorEntities.add(distractor)
     }
   }
 
