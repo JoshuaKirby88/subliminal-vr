@@ -81,14 +81,7 @@ class ExperimentSystem : SystemBase() {
         // Head-lock logic for masks
         for (i in maskEntities.indices) {
             val entity = maskEntities[i]
-            // Show all masks during MASKING phase
-            val isVisible = currentPhase == ExperimentPhase.MASKING
-            entity.setComponent(Visible(isVisible))
-            if (isVisible) {
-                val offset = maskOffsets[i]
-                val pos = maskPosBase + (viewerPose.q * Vector3(offset.x, offset.y, 0f))
-                entity.setComponent(Transform(Pose(pos, targetRot)))
-            }
+            entity.setComponent(Visible(false))
         }
 
         // Head-lock logic for fixation
@@ -97,7 +90,9 @@ class ExperimentSystem : SystemBase() {
             val isVisible = currentPhase == ExperimentPhase.WAITING
             entity.setComponent(Visible(isVisible))
             if (isVisible) {
-                entity.setComponent(Transform(Pose(fixationPos, targetRot)))
+                val offset = if (i < fixationOffsets.size) fixationOffsets[i] else Vector3(0f)
+                val pos = fixationPos + (viewerPose.q * offset)
+                entity.setComponent(Transform(Pose(pos, targetRot)))
             }
         }
 

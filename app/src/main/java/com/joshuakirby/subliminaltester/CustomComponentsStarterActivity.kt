@@ -231,7 +231,6 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 experimentSystem.startExperiment(duration, reps, bg, displayType)
               }
 
-
               rootView.findViewById<Button>(R.id.guess_button_1)?.setOnClickListener { btn ->
                 experimentSystem.handleGuess((btn as Button).text.toString())
               }
@@ -298,44 +297,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
     createFixationIfNeeded()
 
-    createMaskEntities()
-
-    
-    // Ensure lists are synchronized
-    experimentSystem.fixationEntities.clear()
-    experimentSystem.fixationEntities.addAll(fixationEntities)
-    
     updateEnvironment("Indoor room")
-  }
-
-  private fun createMaskEntities() {
-    if (experimentSystem.maskEntities.isNotEmpty()) return
-
-    // Create a "Mondrian Mask" of colorful quads - enlarged for debug visibility
-    // Using mesh://quad + Quad() + Scale for absolute stability
-    for (i in 1..40) {
-      val x = (Math.random().toFloat() * 3f) - 1.5f
-      val y = (Math.random().toFloat() * 2f) - 1f
-      // Z offset is 0 since base position already contains Z; X/Y are relative to head-locked base
-      val offset = Vector3(x, y, 0f)
-      
-      val width = 0.3f + Math.random().toFloat() * 0.6f
-      val height = 0.3f + Math.random().toFloat() * 0.6f
-
-      val mask =
-          Entity.create(
-            listOf(
-                Mesh(Uri.parse("mesh://quad")),
-                Scale(Vector3(width, height, 1f)),
-                  Material().apply {
-                    baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 1.0f)
-                    unlit = true
-                  },
-                  Transform(Pose(offset)),
-                  Visible(false)))
-      experimentSystem.maskEntities.add(mask)
-      experimentSystem.maskOffsets.add(offset)
-    }
   }
 
   private fun updateEnvironment(label: String) {
@@ -408,9 +370,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     )
     scene.enablePassthrough(passthrough)
 
-    // Toggle distractors and fixation
+    // Toggle distractors
     val isComplex = label == "Complex"
-    val isExperimentActive = experimentSystem.currentPhase != ExperimentPhase.MENU
     
     if (isComplex) startDistractorAnimation() else stopDistractorAnimation()
 
@@ -418,19 +379,15 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
       distractor.setComponent(Visible(isComplex))
     }
 
-    // Fixation cross visibility (visible in all but Indoor room, UNLESS experiment is active)
-    val needsFixation = label != "Indoor room" || isExperimentActive
-    if (needsFixation) createFixationIfNeeded()
-    for (fixation in fixationEntities) {
-      fixation.setComponent(Visible(needsFixation))
-    }
+    // Fixation cross creation (handled by system for visibility)
+    createFixationIfNeeded()
   }
 
   private fun createFixationIfNeeded() {
     if (fixationEntities.isNotEmpty()) return
 
-    // Create a simple head-locked fixation cross - using mesh://quad + Quad() for maximum stability
-    // Initial position will be overwritten by head-lock logic in ExperimentSystem.execute()
+    // Create a centered head-locked fixation cross
+    // mesh://quad is anchored at bottom-left, so we must offset by -half-scale to center it
     val horizontal =
         Entity.create(
             listOf(
@@ -438,7 +395,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 Scale(Vector3(0.3f, 0.02f, 1f)),
                 Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true }, // Neon Green
                 Transform(Pose(Vector3(0f, 0f, 0f))),
-                Visible(true)))
+                Visible(false)))
 
     val vertical =
         Entity.create(
@@ -446,17 +403,17 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 Mesh(Uri.parse("mesh://quad")),
                 Scale(Vector3(0.02f, 0.3f, 1f)),
                 Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true },
-                Transform(Pose(Vector3(0f, 0f, 0f))),
-                Visible(true)))
+                Transform(Pose(Vector3(0f, 0f, 0.001f))),
+                Visible(false)))
     
     fixationEntities.add(horizontal)
     fixationEntities.add(vertical)
     experimentSystem.fixationEntities.clear()
     experimentSystem.fixationEntities.addAll(fixationEntities)
     experimentSystem.fixationOffsets.clear()
-    // Offsets are X/Y only; Z is handled by the base position in execute()
-    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, 0f))
-    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, 0f))
+    // Offsets to center the bottom-left anchored quads: (-width/2, -height/2, Z)
+    experimentSystem.fixationOffsets.add(Vector3(-0.15f, -0.01f, 0f))
+    experimentSystem.fixationOffsets.add(Vector3(-0.01f, -0.15f, 0.001f))
   }
 
   private fun createDistractorsIfNeeded() {
