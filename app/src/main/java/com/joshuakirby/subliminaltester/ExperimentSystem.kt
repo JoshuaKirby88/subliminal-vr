@@ -28,6 +28,14 @@ enum class ExperimentPhase {
 }
 
 class ExperimentSystem : SystemBase() {
+    companion object {
+        const val FLASH_PANEL_WIDTH_METERS = 1.2f
+        const val FLASH_PANEL_HEIGHT_METERS = 0.6f
+        const val FLASH_MASK_DEPTH_METERS = 1.08f
+        const val STIMULUS_DEPTH_METERS = 1.10f
+        const val FIXATION_DEPTH_METERS = 1.05f
+    }
+
     @Volatile var currentPhase = ExperimentPhase.MENU
     
     // Config
@@ -82,8 +90,8 @@ class ExperimentSystem : SystemBase() {
         val targetRot = viewerPose.q
 
         // Layered depths to prevent Z-fighting
-        val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.05f))
-        val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.10f))
+        val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, FIXATION_DEPTH_METERS))
+        val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, STIMULUS_DEPTH_METERS))
 
         // Head-lock logic for message
         messageEntity?.let {
@@ -97,7 +105,11 @@ class ExperimentSystem : SystemBase() {
         val maskingPhase =
             currentPhase == ExperimentPhase.FORWARD_MASKING || currentPhase == ExperimentPhase.BACKWARD_MASKING
         if (maskEntities.isNotEmpty()) {
-            val maskBaseLocal = Vector3(-1.0f, -0.5f, 1.08f)
+            val maskBaseLocal = Vector3(
+                -FLASH_PANEL_WIDTH_METERS / 2f,
+                -FLASH_PANEL_HEIGHT_METERS / 2f,
+                FLASH_MASK_DEPTH_METERS
+            )
             for (i in maskEntities.indices) {
                 val entity = maskEntities[i]
                 entity.setComponent(Visible(maskingPhase))
@@ -115,7 +127,12 @@ class ExperimentSystem : SystemBase() {
             val fallbackVisible = maskEntities.isEmpty() && maskingPhase
             it.setComponent(Visible(fallbackVisible))
             if (fallbackVisible) {
-                val pos = viewerPose.t + (viewerPose.q * Vector3(-1.0f, -0.5f, 1.08f))
+                val pos = viewerPose.t + (viewerPose.q *
+                    Vector3(
+                        -FLASH_PANEL_WIDTH_METERS / 2f,
+                        -FLASH_PANEL_HEIGHT_METERS / 2f,
+                        FLASH_MASK_DEPTH_METERS
+                    ))
                 it.setComponent(Transform(Pose(pos, targetRot)))
             }
         }
@@ -385,7 +402,6 @@ class ExperimentSystem : SystemBase() {
         val config = currentFlashConfig()
         lastFlashBackground = config.backgroundLabel
         activityScope.launch {
-            onBackgroundUpdate?.invoke(config.backgroundLabel)
             flashTextView?.setTextColor(config.textColor)
             flashRootView?.setBackgroundColor(config.panelColor)
         }
@@ -400,10 +416,16 @@ class ExperimentSystem : SystemBase() {
             maskOffsets.add(Vector3(0f))
         }
         for (i in maskEntities.indices) {
-            val width = randomRange(0.15f, 0.65f)
-            val height = randomRange(0.08f, 0.4f)
-            val localX = randomRange(0f, 2f - width) - 1f
-            val localY = randomRange(0f, 1f - height) - 0.5f
+            val width = randomRange(
+                FLASH_PANEL_WIDTH_METERS * 0.08f,
+                FLASH_PANEL_WIDTH_METERS * 0.35f
+            )
+            val height = randomRange(
+                FLASH_PANEL_HEIGHT_METERS * 0.2f,
+                FLASH_PANEL_HEIGHT_METERS * 0.45f
+            )
+            val localX = randomRange(0f, FLASH_PANEL_WIDTH_METERS - width)
+            val localY = randomRange(0f, FLASH_PANEL_HEIGHT_METERS - height)
             val offset = Vector3(localX, localY, 0f)
             if (i < maskOffsets.size) {
                 maskOffsets[i] = offset
@@ -439,14 +461,14 @@ data class FlashVisualConfig(
 
             return when {
                 normalized.contains("black void") -> FlashVisualConfig(
-                    "Black void",
+                    waitingBackground,
                     Color.WHITE,
-                    Color.TRANSPARENT
+                    Color.BLACK
                 )
                 normalized.contains("white void") -> FlashVisualConfig(
-                    "White void",
+                    waitingBackground,
                     Color.BLACK,
-                    Color.TRANSPARENT
+                    Color.WHITE
                 )
                 wantsWhiteLetters -> FlashVisualConfig(
                     waitingBackground,

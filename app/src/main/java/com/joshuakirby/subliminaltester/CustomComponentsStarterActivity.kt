@@ -41,7 +41,6 @@ import com.meta.spatial.toolkit.Panel
 import com.meta.spatial.toolkit.PanelStyleOptions
 import com.meta.spatial.toolkit.QuadShapeOptions
 import com.meta.spatial.toolkit.UIPanelSettings
-import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.TextView
@@ -302,7 +301,10 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             layoutIdCreator = { R.layout.ui_flash },
             settingsCreator = {
               UIPanelSettings(
-                  shape = QuadShapeOptions(width = 2.0f, height = 1.0f),
+                  shape = QuadShapeOptions(
+                      width = ExperimentSystem.FLASH_PANEL_WIDTH_METERS,
+                      height = ExperimentSystem.FLASH_PANEL_HEIGHT_METERS
+                  ),
                   style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent))
             },
             panelSetupWithRootView = { rootView, _, _ ->
@@ -347,7 +349,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     experimentSystem.messageEntity = Entity.create(
         listOf(
             Panel(R.id.flash_panel),
-            Transform(Pose(Vector3(0f, 0f, 1.10f))),
+            Transform(Pose(Vector3(0f, 0f, ExperimentSystem.STIMULUS_DEPTH_METERS))),
             Visible(false)
         )
     )
@@ -355,12 +357,20 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     experimentSystem.maskEntity = Entity.create(
         listOf(
             Mesh(Uri.parse("mesh://quad")),
-            Scale(Vector3(2.0f, 1.0f, 1f)),
+            Scale(Vector3(ExperimentSystem.FLASH_PANEL_WIDTH_METERS, ExperimentSystem.FLASH_PANEL_HEIGHT_METERS, 1f)),
             Material().apply {
                 baseColor = Color4(0.5f, 0.5f, 0.5f, 1.0f) // Neutral Gray mask
                 unlit = true
             },
-            Transform(Pose(Vector3(-1.0f, -0.5f, 1.08f))), // Offset to center the bottom-left anchored quad
+            Transform(
+                Pose(
+                    Vector3(
+                        -ExperimentSystem.FLASH_PANEL_WIDTH_METERS / 2f,
+                        -ExperimentSystem.FLASH_PANEL_HEIGHT_METERS / 2f,
+                        ExperimentSystem.FLASH_MASK_DEPTH_METERS
+                    )
+                )
+            ), // Offset to center the bottom-left anchored quad
             Visible(false)
         )
     )
@@ -502,7 +512,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                     baseColor = Color4(1f, 1f, 1f, 1f)
                     unlit = true
                   },
-                  Transform(Pose(Vector3(0f, 0f, 1.08f))),
+                  Transform(Pose(Vector3(0f, 0f, ExperimentSystem.FLASH_MASK_DEPTH_METERS))),
                   Visible(false)))
       experimentSystem.maskEntities.add(tile)
       experimentSystem.maskOffsets.add(Vector3(0f, 0f, 0f))
