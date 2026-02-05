@@ -28,6 +28,12 @@ class ExperimentSystem : SystemBase() {
     @Volatile var flashDurationMs: Int = 100
     @Volatile var repetitions: Int = 1
     @Volatile var currentRepetition: Int = 0
+    @Volatile var waitingBackground: String = "Indoor room"
+    @Volatile var flashDisplayType: String = "White on Black"
+    
+    // Callbacks
+    var onBackgroundUpdate: ((String) -> Unit)? = null
+
     
     // Timing
     @Volatile private var frameCounter: Int = 0
@@ -75,8 +81,8 @@ class ExperimentSystem : SystemBase() {
         // Head-lock logic for masks
         for (i in maskEntities.indices) {
             val entity = maskEntities[i]
-            // Show all masks during MASKING phase, or first 5 masks during WAITING for visual reference
-            val isVisible = currentPhase == ExperimentPhase.MASKING || (currentPhase == ExperimentPhase.WAITING && i < 5)
+            // Show all masks during MASKING phase
+            val isVisible = currentPhase == ExperimentPhase.MASKING
             entity.setComponent(Visible(isVisible))
             if (isVisible) {
                 val offset = maskOffsets[i]
@@ -118,11 +124,14 @@ class ExperimentSystem : SystemBase() {
         }
     }
     
-    fun startExperiment(duration: Int, reps: Int, message: String) {
-        Log.d("ExperimentSystem", "START EXPERIMENT: dur=$duration, reps=$reps, refresh=$refreshRate")
+    fun startExperiment(duration: Int, reps: Int, bg: String, displayType: String) {
+        Log.d("ExperimentSystem", "START EXPERIMENT: dur=$duration, reps=$reps, bg=$bg, display=$displayType")
         flashDurationMs = duration
         repetitions = reps
+        waitingBackground = bg
+        flashDisplayType = displayType
         currentRepetition = 0
+
         
         val messages = listOf("APPLE", "BANANA", "CHERRY", "DOG", "ELEPHANT", "FLOWER", "GRAPE", "HOUSE", "ISLAND", "JOKER")
         val correctMessage = messages.random()
@@ -158,6 +167,10 @@ class ExperimentSystem : SystemBase() {
         phaseStartTime = System.currentTimeMillis()
         waitTimeMs = (4000..7000).random().toLong()
         
+        activityScope.launch {
+            onBackgroundUpdate?.invoke(waitingBackground)
+        }
+        
         messageEntity?.setComponent(Visible(false))
         // Visibility controlled by execute() based on currentPhase
         Log.d("ExperimentSystem", "Waiting for $waitTimeMs ms")
@@ -166,6 +179,24 @@ class ExperimentSystem : SystemBase() {
     private fun startFlashing() {
         currentPhase = ExperimentPhase.FLASHING
         phaseStartTime = System.currentTimeMillis()
+        
+        // Background update for flashing
+        val flashBg = when {
+            flashDisplayType.contains("on Black") -> "Black void"
+            flashDisplayType.contains("on White") -> "White void"
+            else -> waitingBackground
+        }
+        val textColor = when {
+            flashDisplayType.contains("White on") -> android.graphics.Color.WHITE
+            flashDisplayType.contains("Black on") -> android.graphics.Color.BLACK
+            flashDisplayType.contains("Green on") -> android.graphics.Color.GREEN
+            flashDisplayType.contains("Red on") -> android.graphics.Color.RED
+            else -> android.graphics.Color.WHITE
+        }
+        activityScope.launch {
+            onBackgroundUpdate?.invoke(flashBg)
+            flashTextView?.setTextColor(textColor)
+        }
         
         // Calculate frames: round(ms * rate / 1000)
         frameCounter = Math.max(1, Math.round(flashDurationMs * refreshRate / 1000f))
@@ -180,9 +211,14 @@ class ExperimentSystem : SystemBase() {
         currentPhase = ExperimentPhase.MASKING
         phaseStartTime = System.currentTimeMillis()
         
+        activityScope.launch {
+            onBackgroundUpdate?.invoke(waitingBackground)
+        }
+        
         messageEntity?.setComponent(Visible(false))
         // Visibility controlled by execute() based on currentPhase
     }
+
     
     private fun checkRepetitions() {
         currentRepetition++
@@ -206,8 +242,10 @@ class ExperimentSystem : SystemBase() {
     fun showResult(correct: Boolean) {
         currentPhase = ExperimentPhase.MENU
         activityScope.launch {
+            onBackgroundUpdate?.invoke(waitingBackground)
             panelEntity?.setComponent(Visible(true))
             testingLayout?.visibility = View.GONE
+
             resultLayout?.visibility = View.VISIBLE
             val resultText = resultLayout?.findViewById<TextView>(R.id.result_text)
             if (correct) {
@@ -223,6 +261,7 @@ class ExperimentSystem : SystemBase() {
     fun resetToMenu() {
         currentPhase = ExperimentPhase.MENU
         activityScope.launch {
+            onBackgroundUpdate?.invoke(waitingBackground)
             panelEntity?.setComponent(Visible(true))
             settingsLayout?.visibility = View.VISIBLE
             testingLayout?.visibility = View.GONE

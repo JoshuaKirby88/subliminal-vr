@@ -114,6 +114,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     componentManager.registerComponent<LookAt>(LookAt.Companion)
     systemManager.registerSystem(LookAtSystem())
     systemManager.registerSystem(experimentSystem)
+    experimentSystem.onBackgroundUpdate = { label ->
+        updateEnvironment(label)
+    }
 
     val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
 
@@ -208,20 +211,26 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 val selectedOption = backgroundOptions[currentBgIndex]
                 backgroundBtn.text = selectedOption
                 updateEnvironment(selectedOption)
+                experimentSystem.waitingBackground = selectedOption
               }
 
               val displayOptions = resources.getStringArray(R.array.display_type_options)
               var currentDisplayIndex = 0
               displayBtn?.setOnClickListener {
                 currentDisplayIndex = (currentDisplayIndex + 1) % displayOptions.size
-                displayBtn.text = displayOptions[currentDisplayIndex]
+                val selectedOption = displayOptions[currentDisplayIndex]
+                displayBtn.text = selectedOption
+                experimentSystem.flashDisplayType = selectedOption
               }
 
               startBtn?.setOnClickListener {
                 val duration = durationSlider.progress + 15
                 val reps = repetitionSlider.progress + 1
-                experimentSystem.startExperiment(duration, reps, "")
+                val bg = backgroundOptions[currentBgIndex]
+                val displayType = displayOptions[currentDisplayIndex]
+                experimentSystem.startExperiment(duration, reps, bg, displayType)
               }
+
 
               rootView.findViewById<Button>(R.id.guess_button_1)?.setOnClickListener { btn ->
                 experimentSystem.handleGuess((btn as Button).text.toString())
@@ -442,6 +451,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     
     fixationEntities.add(horizontal)
     fixationEntities.add(vertical)
+    experimentSystem.fixationEntities.clear()
+    experimentSystem.fixationEntities.addAll(fixationEntities)
     experimentSystem.fixationOffsets.clear()
     // Offsets are X/Y only; Z is handled by the base position in execute()
     experimentSystem.fixationOffsets.add(Vector3(0f, 0f, 0f))
