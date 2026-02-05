@@ -63,6 +63,15 @@ class ExperimentSystem : SystemBase() {
     var resultLayout: View? = null
     var flashTextView: TextView? = null
     var flashRootView: View? = null
+    var trialLogger: TrialLogger? = null
+    private var trialCounter: Int = 0
+    private var guessPhaseStartTime: Long = 0
+    private val waitDurationsMs = mutableListOf<Long>()
+    private val flashDurationsActual = mutableListOf<Double>()
+    private var currentTargetMessage: String? = null
+    private var currentChoices: List<String> = emptyList()
+    private var lastFlashBackground: String = ""
+    private var trialStartTimestamp: Long = 0
     
     // Calibration
     var refreshRate: Float = 90f // Default, will be updated
@@ -140,6 +149,7 @@ class ExperimentSystem : SystemBase() {
                 frameCounter--
                 if (frameCounter <= 0) {
                     val actualDurMs = (System.nanoTime() - flashStartNano) / 1_000_000.0
+                    flashDurationsActual.add(actualDurMs)
                     Log.d("ExperimentSystem", "FLASH COMPLETED. Actual duration: ${"%.2f".format(actualDurMs)}ms")
                     startBackwardMasking()
                 }
@@ -160,12 +170,19 @@ class ExperimentSystem : SystemBase() {
         waitingBackground = bg
         flashDisplayType = displayType
         refreshFlashVisuals()
+        lastFlashBackground = waitingBackground
         currentRepetition = 0
+        waitDurationsMs.clear()
+        flashDurationsActual.clear()
+        trialStartTimestamp = System.currentTimeMillis()
+        trialCounter++
         
         val messages = listOf("APPLE", "BANANA", "CHERRY", "DOG", "ELEPHANT", "FLOWER", "GRAPE", "HOUSE", "ISLAND", "JOKER")
         val correctMessage = messages.random()
         val decoys = messages.filter { it != correctMessage }.shuffled().take(2)
         val choices = (decoys + correctMessage).shuffled()
+        currentTargetMessage = correctMessage
+        currentChoices = choices
 
         activityScope.launch {
             flashTextView?.text = correctMessage
@@ -189,13 +206,16 @@ class ExperimentSystem : SystemBase() {
 
     fun handleGuess(guess: String) {
         val correctMessage = testingLayout?.tag as? String
-        showResult(guess == correctMessage)
+        val isCorrect = guess == correctMessage
+        logTrialResult(guess, isCorrect)
+        showResult(isCorrect)
     }
     
     private fun startWaiting() {
         currentPhase = ExperimentPhase.WAITING
         phaseStartTime = System.currentTimeMillis()
         waitTimeMs = (4000..7000).random().toLong()
+        waitDurationsMs.add(waitTimeMs)
         
         activityScope.launch {
             onBackgroundUpdate?.invoke(waitingBackground)
@@ -270,6 +290,41 @@ class ExperimentSystem : SystemBase() {
             panelEntity?.setComponent(Visible(true))
             testingLayout?.visibility = View.VISIBLE
         }
+        guessPhaseStartTime = System.currentTimeMillis()
+    }
+    
+    private fun logTrialResult(guess: String, correct: Boolean) {
+        val choicesSnapshot =
+            if (currentChoices.isNotEmpty()) {
+                currentChoices
+            } else {
+                listOf(
+                    testingLayout?.findViewById<Button>(R.id.guess_button_1)?.text?.toString().orEmpty(),
+                    testingLayout?.findViewById<Button>(R.id.guess_button_2)?.text?.toString().orEmpty(),
+                    testingLayout?.findViewById<Button>(R.id.guess_button_3)?.text?.toString().orEmpty())
+            }
+        val entry =
+            TrialLogEntry(
+                trialIndex = trialCounter,
+                startedAtEpochMs = trialStartTimestamp,
+                background = waitingBackground,
+                flashDisplayType = flashDisplayType,
+                flashBackgroundDuringStimulus =
+                    if (lastFlashBackground.isNotEmpty()) lastFlashBackground
+                    else currentFlashConfig().backgroundLabel,
+                flashDurationTargetMs = flashDurationMs,
+                forwardMaskDurationMs = forwardMaskDurationMs,
+                backwardMaskDurationMs = backwardMaskDurationMs,
+                repetitions = repetitions,
+                waitDurationsMs = waitDurationsMs.toList(),
+                flashDurationsMs = flashDurationsActual.toList(),
+                targetMessage = currentTargetMessage.orEmpty(),
+                choices = choicesSnapshot,
+                guess = guess,
+                correct = correct,
+                responseTimeMs =
+                    if (guessPhaseStartTime > 0) System.currentTimeMillis() - guessPhaseStartTime else 0L)
+        trialLogger?.log(entry)
     }
     
     fun showResult(correct: Boolean) {
@@ -328,6 +383,7 @@ class ExperimentSystem : SystemBase() {
 
     private fun applyFlashVisualsForFlash() {
         val config = currentFlashConfig()
+        lastFlashBackground = config.backgroundLabel
         activityScope.launch {
             onBackgroundUpdate?.invoke(config.backgroundLabel)
             flashTextView?.setTextColor(config.textColor)

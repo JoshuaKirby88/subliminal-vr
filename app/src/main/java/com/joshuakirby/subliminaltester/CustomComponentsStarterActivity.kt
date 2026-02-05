@@ -77,6 +77,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private var animationStartTime: Long = 0
   private val activityScope = CoroutineScope(Dispatchers.Main)
   private val experimentSystem = ExperimentSystem()
+  private lateinit var trialLogger: TrialLogger
 
   override fun registerFeatures(): List<SpatialFeature> {
 
@@ -118,6 +119,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     componentManager.registerComponent<LookAt>(LookAt.Companion)
     systemManager.registerSystem(LookAtSystem())
     systemManager.registerSystem(experimentSystem)
+    trialLogger = TrialLogger(this)
+    experimentSystem.trialLogger = trialLogger
     experimentSystem.onBackgroundUpdate = { label ->
         updateEnvironment(label)
     }
@@ -597,6 +600,13 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
           rootEntity = gltfxEntity!!,
           onLoaded = onLoaded,
       )
+    }
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
+    if (::trialLogger.isInitialized) {
+      trialLogger.close()
     }
   }
 }
