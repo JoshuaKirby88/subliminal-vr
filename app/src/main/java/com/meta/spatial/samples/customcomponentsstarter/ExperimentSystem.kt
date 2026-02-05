@@ -63,9 +63,7 @@ class ExperimentSystem : SystemBase() {
 
         // Head-lock logic for message
         messageEntity?.let {
-            if (it.getComponent<Visible>()?.isVisible == true) {
-                it.setComponent(Transform(Pose(stimulusPos, targetRot)))
-            }
+            it.setComponent(Transform(Pose(stimulusPos, targetRot)))
         }
         
         // Head-lock logic for masks
