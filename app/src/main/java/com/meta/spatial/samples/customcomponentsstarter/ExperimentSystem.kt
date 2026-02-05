@@ -57,9 +57,10 @@ class ExperimentSystem : SystemBase() {
         val targetRot = viewerPose.q
 
         // Layered depths to prevent Z-fighting
-        val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.05f))
-        val maskPosBase = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.00f))
-        val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.10f))
+        // Note: +Z is forward in this project's coordinate system (see HEAD_LOCK_DEV_LOG.md)
+        val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.05f))
+        val maskPosBase = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.00f))
+        val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.10f))
 
 
         // Head-lock logic for message
@@ -74,7 +75,8 @@ class ExperimentSystem : SystemBase() {
         // Head-lock logic for masks
         for (i in maskEntities.indices) {
             val entity = maskEntities[i]
-            val isVisible = currentPhase == ExperimentPhase.MASKING || (currentPhase == ExperimentPhase.WAITING && i < 5) // Show a few masks during wait for reference
+            // Show all masks during MASKING phase, or first 5 masks during WAITING for visual reference
+            val isVisible = currentPhase == ExperimentPhase.MASKING || (currentPhase == ExperimentPhase.WAITING && i < 5)
             entity.setComponent(Visible(isVisible))
             if (isVisible) {
                 val offset = maskOffsets[i]
@@ -157,8 +159,7 @@ class ExperimentSystem : SystemBase() {
         waitTimeMs = (4000..7000).random().toLong()
         
         messageEntity?.setComponent(Visible(false))
-        setMaskVisible(true)
-        setFixationVisible(true)
+        // Visibility controlled by execute() based on currentPhase
         Log.d("ExperimentSystem", "Waiting for $waitTimeMs ms")
     }
     
@@ -180,7 +181,7 @@ class ExperimentSystem : SystemBase() {
         phaseStartTime = System.currentTimeMillis()
         
         messageEntity?.setComponent(Visible(false))
-        setMaskVisible(true)
+        // Visibility controlled by execute() based on currentPhase
     }
     
     private fun checkRepetitions() {
@@ -194,8 +195,7 @@ class ExperimentSystem : SystemBase() {
     
     private fun startGuessing() {
         currentPhase = ExperimentPhase.GUESSING
-        setMaskVisible(false)
-        setFixationVisible(false)
+        // Visibility controlled by execute() based on currentPhase
         
         activityScope.launch {
             panelEntity?.setComponent(Visible(true))
@@ -229,23 +229,10 @@ class ExperimentSystem : SystemBase() {
             resultLayout?.visibility = View.GONE
         }
         messageEntity?.setComponent(Visible(false))
-        setMaskVisible(false)
-        setFixationVisible(false)
+        // Visibility controlled by execute() based on currentPhase
     }
 
     
-    private fun setMaskVisible(visible: Boolean) {
-        for (mask in maskEntities) {
-            mask.setComponent(Visible(visible))
-        }
-    }
-    
-    private fun setFixationVisible(visible: Boolean) {
-        for (fix in fixationEntities) {
-            fix.setComponent(Visible(visible))
-        }
-    }
-
     // Helper to run on main thread for UI
     private val activityScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
 }

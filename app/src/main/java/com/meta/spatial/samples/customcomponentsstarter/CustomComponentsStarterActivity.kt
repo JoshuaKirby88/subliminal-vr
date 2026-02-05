@@ -282,8 +282,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     experimentSystem.messageEntity = Entity.create(
         listOf(
             Panel(R.id.flash_panel),
-            Transform(Pose(Vector3(0f, 0f, -0.8f))),
-            Visible(true)
+            Transform(Pose(Vector3(0f, 0f, 1.10f))),
+            Visible(false)
         )
     )
 
@@ -307,8 +307,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     for (i in 1..40) {
       val x = (Math.random().toFloat() * 3f) - 1.5f
       val y = (Math.random().toFloat() * 2f) - 1f
-      val z = -1.45f 
-      val offset = Vector3(x, y, z)
+      // Z offset is 0 since base position already contains Z; X/Y are relative to head-locked base
+      val offset = Vector3(x, y, 0f)
       
       val width = 0.3f + Math.random().toFloat() * 0.6f
       val height = 0.3f + Math.random().toFloat() * 0.6f
@@ -421,13 +421,14 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     if (fixationEntities.isNotEmpty()) return
 
     // Create a simple head-locked fixation cross - using mesh://quad + Quad() for maximum stability
+    // Initial position will be overwritten by head-lock logic in ExperimentSystem.execute()
     val horizontal =
         Entity.create(
             listOf(
                 Mesh(Uri.parse("mesh://quad")),
                 Scale(Vector3(0.3f, 0.02f, 1f)),
                 Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true }, // Neon Green
-                Transform(Pose(Vector3(0f, 0f, -1f))),
+                Transform(Pose(Vector3(0f, 0f, 0f))),
                 Visible(true)))
 
     val vertical =
@@ -436,14 +437,15 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 Mesh(Uri.parse("mesh://quad")),
                 Scale(Vector3(0.02f, 0.3f, 1f)),
                 Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true },
-                Transform(Pose(Vector3(0f, 0f, -1f))),
+                Transform(Pose(Vector3(0f, 0f, 0f))),
                 Visible(true)))
     
     fixationEntities.add(horizontal)
     fixationEntities.add(vertical)
     experimentSystem.fixationOffsets.clear()
-    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -1f))
-    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, -1f))
+    // Offsets are X/Y only; Z is handled by the base position in execute()
+    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, 0f))
+    experimentSystem.fixationOffsets.add(Vector3(0f, 0f, 0f))
   }
 
   private fun createDistractorsIfNeeded() {
