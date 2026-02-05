@@ -3,8 +3,11 @@ package com.joshuakirby.subliminaltester
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.SystemBase
 import com.meta.spatial.toolkit.Visible
+import com.meta.spatial.core.Color4
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Vector3
+import com.meta.spatial.toolkit.Material
+import com.meta.spatial.toolkit.Scale
 import com.meta.spatial.toolkit.Transform
 import android.graphics.Color
 import android.util.Log
@@ -13,12 +16,14 @@ import android.widget.Button
 import android.widget.TextView
 import kotlinx.coroutines.launch
 import com.joshuakirby.subliminaltester.R
+import java.util.Random
 
 enum class ExperimentPhase {
     MENU,
     WAITING,
+    FORWARD_MASKING,
     FLASHING,
-    MASKING,
+    BACKWARD_MASKING,
     GUESSING
 }
 
@@ -31,6 +36,8 @@ class ExperimentSystem : SystemBase() {
     @Volatile var currentRepetition: Int = 0
     @Volatile var waitingBackground: String = "Indoor room"
     @Volatile var flashDisplayType: String = "Black void, white letters"
+    @Volatile var forwardMaskDurationMs: Int = 50
+    @Volatile var backwardMaskDurationMs: Int = 150
     
     // Callbacks
     var onBackgroundUpdate: ((String) -> Unit)? = null
@@ -67,7 +74,6 @@ class ExperimentSystem : SystemBase() {
 
         // Layered depths to prevent Z-fighting
         val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.05f))
-        val maskPosBase = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.00f))
         val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.10f))
 
         // Head-lock logic for message
@@ -79,21 +85,30 @@ class ExperimentSystem : SystemBase() {
             }
         }
 
-        // Head-lock logic for mask
+        val maskingPhase =
+            currentPhase == ExperimentPhase.FORWARD_MASKING || currentPhase == ExperimentPhase.BACKWARD_MASKING
+        if (maskEntities.isNotEmpty()) {
+            val maskBaseLocal = Vector3(-1.0f, -0.5f, 1.08f)
+            for (i in maskEntities.indices) {
+                val entity = maskEntities[i]
+                entity.setComponent(Visible(maskingPhase))
+                if (maskingPhase) {
+                    val offset = if (i < maskOffsets.size) maskOffsets[i] else Vector3(0f)
+                    val localPos = maskBaseLocal + offset
+                    val pos = viewerPose.t + (viewerPose.q * localPos)
+                    entity.setComponent(Transform(Pose(pos, targetRot)))
+                }
+            }
+        }
+
+        // Fallback to single quad if Mondrian tiles are unavailable
         maskEntity?.let {
-            val isVisible = currentPhase == ExperimentPhase.MASKING
-            it.setComponent(Visible(isVisible))
-            if (isVisible) {
-                // Offset by -1, -0.5 to center the 2x1 quad (bottom-left anchored)
+            val fallbackVisible = maskEntities.isEmpty() && maskingPhase
+            it.setComponent(Visible(fallbackVisible))
+            if (fallbackVisible) {
                 val pos = viewerPose.t + (viewerPose.q * Vector3(-1.0f, -0.5f, 1.08f))
                 it.setComponent(Transform(Pose(pos, targetRot)))
             }
-        }
-        
-        // Head-lock logic for masks
-        for (i in maskEntities.indices) {
-            val entity = maskEntities[i]
-            entity.setComponent(Visible(false))
         }
 
         // Head-lock logic for fixation
@@ -113,6 +128,11 @@ class ExperimentSystem : SystemBase() {
             ExperimentPhase.MENU -> { }
             ExperimentPhase.WAITING -> {
                 if (System.currentTimeMillis() - phaseStartTime >= waitTimeMs) {
+                    startForwardMasking()
+                }
+            }
+            ExperimentPhase.FORWARD_MASKING -> {
+                if (System.currentTimeMillis() - phaseStartTime >= forwardMaskDurationMs) {
                     startFlashing()
                 }
             }
@@ -121,11 +141,11 @@ class ExperimentSystem : SystemBase() {
                 if (frameCounter <= 0) {
                     val actualDurMs = (System.nanoTime() - flashStartNano) / 1_000_000.0
                     Log.d("ExperimentSystem", "FLASH COMPLETED. Actual duration: ${"%.2f".format(actualDurMs)}ms")
-                    startMasking()
+                    startBackwardMasking()
                 }
             }
-            ExperimentPhase.MASKING -> {
-                if (System.currentTimeMillis() - phaseStartTime >= 150) { // 150ms backward mask
+            ExperimentPhase.BACKWARD_MASKING -> {
+                if (System.currentTimeMillis() - phaseStartTime >= backwardMaskDurationMs) {
                     checkRepetitions()
                 }
             }
@@ -203,17 +223,33 @@ class ExperimentSystem : SystemBase() {
     }
 
     
-    private fun startMasking() {
-        currentPhase = ExperimentPhase.MASKING
+    private fun startForwardMasking() {
+        if (forwardMaskDurationMs <= 0) {
+            startFlashing()
+            return
+        }
+        currentPhase = ExperimentPhase.FORWARD_MASKING
         phaseStartTime = System.currentTimeMillis()
-        
+        randomizeMaskPattern()
+        messageEntity?.setComponent(Visible(false))
+        Log.d("ExperimentSystem", "Starting Forward Mask (${forwardMaskDurationMs}ms)")
+    }
+
+    private fun startBackwardMasking() {
         activityScope.launch {
             onBackgroundUpdate?.invoke(waitingBackground)
         }
-        
+
+        if (backwardMaskDurationMs <= 0) {
+            checkRepetitions()
+            return
+        }
+        currentPhase = ExperimentPhase.BACKWARD_MASKING
+        phaseStartTime = System.currentTimeMillis()
+
+        randomizeMaskPattern()
         messageEntity?.setComponent(Visible(false))
-        maskEntity?.setComponent(Visible(true))
-        Log.d("ExperimentSystem", "Starting Backward Mask (150ms)")
+        Log.d("ExperimentSystem", "Starting Backward Mask (${backwardMaskDurationMs}ms)")
     }
     
     private fun checkRepetitions() {
@@ -269,6 +305,15 @@ class ExperimentSystem : SystemBase() {
         // Visibility controlled by execute() based on currentPhase
     }
 
+    private val maskColorPalette = arrayOf(
+        Color4(1f, 1f, 1f, 1f),
+        Color4(0f, 0f, 0f, 1f),
+        Color4(0.9f, 0.1f, 0.1f, 1f),
+        Color4(0.1f, 0.1f, 0.9f, 1f),
+        Color4(0.95f, 0.9f, 0.1f, 1f),
+        Color4(0.1f, 0.8f, 0.7f, 1f)
+    )
+    private val random = Random()
     
     // Helper to run on main thread for UI
     private val activityScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
@@ -292,6 +337,37 @@ class ExperimentSystem : SystemBase() {
 
     private fun currentFlashConfig(): FlashVisualConfig =
         FlashVisualConfig.fromDescriptor(flashDisplayType, waitingBackground)
+
+    private fun randomizeMaskPattern() {
+        if (maskEntities.isEmpty()) return
+        while (maskOffsets.size < maskEntities.size) {
+            maskOffsets.add(Vector3(0f))
+        }
+        for (i in maskEntities.indices) {
+            val width = randomRange(0.15f, 0.65f)
+            val height = randomRange(0.08f, 0.4f)
+            val localX = randomRange(0f, 2f - width) - 1f
+            val localY = randomRange(0f, 1f - height) - 0.5f
+            val offset = Vector3(localX, localY, 0f)
+            if (i < maskOffsets.size) {
+                maskOffsets[i] = offset
+            } else {
+                maskOffsets.add(offset)
+            }
+
+            val entity = maskEntities[i]
+            entity.setComponent(Scale(Vector3(width, height, 1f)))
+            entity.getComponent<Material>()?.let { material ->
+                material.baseColor = maskColorPalette[random.nextInt(maskColorPalette.size)]
+                material.unlit = true
+                entity.setComponent(material)
+            }
+        }
+    }
+
+    private fun randomRange(min: Float, max: Float): Float {
+        return min + random.nextFloat() * (max - min)
+    }
 }
 
 data class FlashVisualConfig(

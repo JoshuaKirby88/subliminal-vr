@@ -165,6 +165,10 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               val durationText = rootView.findViewById<TextView>(R.id.duration_value_text)
               val repetitionSlider = rootView.findViewById<SeekBar>(R.id.repetition_slider)
               val repetitionText = rootView.findViewById<TextView>(R.id.repetition_value_text)
+              val forwardMaskSlider = rootView.findViewById<SeekBar>(R.id.forward_mask_slider)
+              val forwardMaskText = rootView.findViewById<TextView>(R.id.forward_mask_value_text)
+              val backwardMaskSlider = rootView.findViewById<SeekBar>(R.id.backward_mask_slider)
+              val backwardMaskText = rootView.findViewById<TextView>(R.id.backward_mask_value_text)
               val startBtn = rootView.findViewById<Button>(R.id.start_button)
 
               val settingsLayout = rootView.findViewById<View>(R.id.settings_layout)
@@ -183,6 +187,11 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               
               repetitionSlider?.progress = 0 // 1 repetition
               repetitionText?.text = "1"
+
+              forwardMaskSlider?.progress = experimentSystem.forwardMaskDurationMs
+              forwardMaskText?.text = "${experimentSystem.forwardMaskDurationMs} ms"
+              backwardMaskSlider?.progress = experimentSystem.backwardMaskDurationMs
+              backwardMaskText?.text = "${experimentSystem.backwardMaskDurationMs} ms"
 
               durationSlider?.setOnSeekBarChangeListener(
                   object : SeekBar.OnSeekBarChangeListener {
@@ -215,6 +224,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               // Custom Cycling Selector Logic
               val backgroundOptions = resources.getStringArray(R.array.background_options)
               var currentBgIndex = 0
+              backgroundBtn?.text = backgroundOptions[currentBgIndex]
+              experimentSystem.waitingBackground = backgroundOptions[currentBgIndex]
               backgroundBtn?.setOnClickListener {
                 currentBgIndex = (currentBgIndex + 1) % backgroundOptions.size
                 val selectedOption = backgroundOptions[currentBgIndex]
@@ -226,6 +237,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
               val displayOptions = resources.getStringArray(R.array.display_type_options)
               var currentDisplayIndex = 0
+              displayBtn?.text = displayOptions[currentDisplayIndex]
+              experimentSystem.flashDisplayType = displayOptions[currentDisplayIndex]
+              experimentSystem.refreshFlashVisuals()
               displayBtn?.setOnClickListener {
                 currentDisplayIndex = (currentDisplayIndex + 1) % displayOptions.size
                 val selectedOption = displayOptions[currentDisplayIndex]
@@ -233,6 +247,34 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 experimentSystem.flashDisplayType = selectedOption
                 experimentSystem.refreshFlashVisuals()
               }
+
+              forwardMaskSlider?.setOnSeekBarChangeListener(
+                  object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                        seekBar: SeekBar?,
+                        progress: Int,
+                        fromUser: Boolean
+                    ) {
+                      forwardMaskText?.text = "$progress ms"
+                      experimentSystem.forwardMaskDurationMs = progress
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                  })
+
+              backwardMaskSlider?.setOnSeekBarChangeListener(
+                  object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                        seekBar: SeekBar?,
+                        progress: Int,
+                        fromUser: Boolean
+                    ) {
+                      backwardMaskText?.text = "$progress ms"
+                      experimentSystem.backwardMaskDurationMs = progress
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                  })
 
               startBtn?.setOnClickListener {
                 val duration = durationSlider.progress + 15
@@ -322,6 +364,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     )
 
     createFixationIfNeeded()
+    createMondrianMaskIfNeeded()
 
     updateEnvironment("Indoor room")
   }
@@ -407,6 +450,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
     // Fixation cross creation (handled by system for visibility)
     createFixationIfNeeded()
+    createMondrianMaskIfNeeded()
   }
 
   private fun createFixationIfNeeded() {
@@ -440,6 +484,27 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     // Offsets to center the bottom-left anchored quads: (-width/2, -height/2, Z)
     experimentSystem.fixationOffsets.add(Vector3(-0.15f, -0.01f, 0f))
     experimentSystem.fixationOffsets.add(Vector3(-0.01f, -0.15f, 0.001f))
+  }
+
+  private fun createMondrianMaskIfNeeded() {
+    if (experimentSystem.maskEntities.isNotEmpty()) return
+
+    val tileCount = 40
+    for (i in 0 until tileCount) {
+      val tile =
+          Entity.create(
+              listOf(
+                  Mesh(Uri.parse("mesh://quad")),
+                  Scale(Vector3(0.2f, 0.2f, 1f)),
+                  Material().apply {
+                    baseColor = Color4(1f, 1f, 1f, 1f)
+                    unlit = true
+                  },
+                  Transform(Pose(Vector3(0f, 0f, 1.08f))),
+                  Visible(false)))
+      experimentSystem.maskEntities.add(tile)
+      experimentSystem.maskOffsets.add(Vector3(0f, 0f, 0f))
+    }
   }
 
   private fun createDistractorsIfNeeded() {
