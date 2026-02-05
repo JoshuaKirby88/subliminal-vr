@@ -241,6 +241,17 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             panelSetupWithRootView = { rootView, _, _ ->
               experimentSystem.flashTextView = rootView.findViewById(R.id.flash_text)
             }
+        ),
+        LayoutXMLPanelRegistration(
+            R.id.test_panel,
+            layoutIdCreator = { R.layout.ui_test_panel },
+            settingsCreator = {
+              UIPanelSettings(
+                  shape = QuadShapeOptions(width = 1.0f, height = 0.5f),
+                  style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent))
+            },
+            panelSetupWithRootView = { _, _, _ ->
+            }
         )
     )
   }
@@ -283,6 +294,14 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     )
 
     createFixationIfNeeded()
+
+    Entity.create(
+        listOf(
+            Panel(R.id.test_panel),
+            Transform(Pose(Vector3(0f, 1.5f, -1.0f))),
+            Visible(true)
+        )
+    )
     createMaskEntities()
     
     // Ensure lists are synchronized

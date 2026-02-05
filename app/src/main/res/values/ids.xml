@@ -2,4 +2,5 @@
 <resources>
   <item name="main_panel" type="id" />
   <item name="flash_panel" type="id" />
+  <item name="test_panel" type="id" />
 </resources>
