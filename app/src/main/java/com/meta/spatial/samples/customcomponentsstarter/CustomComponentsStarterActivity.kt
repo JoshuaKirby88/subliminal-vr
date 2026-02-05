@@ -277,10 +277,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     experimentSystem.messageEntity = Entity.create(
         listOf(
             Panel(R.id.flash_panel),
-            PanelDimensions(Vector2(2f, 1f)),
-            Scale(Vector3(1f)),
             Transform(Pose(Vector3(0f, 0f, -0.8f))),
-            Visible(true) // FORCE VISIBLE ON CREATION
+            Visible(true)
         )
     )
 
