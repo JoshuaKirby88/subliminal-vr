@@ -10,9 +10,9 @@
     <item>Passthrough</item>
   </string-array>
   <string-array name="display_type_options">
-    <item>White on Black</item>
-    <item>Black on White</item>
-    <item>Green on Black</item>
-    <item>Red on Black</item>
+    <item>Black void, white letters</item>
+    <item>White void, black letters</item>
+    <item>No change, black letters</item>
+    <item>No change, white letters</item>
   </string-array>
 </resources>

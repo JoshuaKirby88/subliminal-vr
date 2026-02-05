@@ -6,6 +6,7 @@ import com.meta.spatial.toolkit.Visible
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Vector3
 import com.meta.spatial.toolkit.Transform
+import android.graphics.Color
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -29,7 +30,7 @@ class ExperimentSystem : SystemBase() {
     @Volatile var repetitions: Int = 1
     @Volatile var currentRepetition: Int = 0
     @Volatile var waitingBackground: String = "Indoor room"
-    @Volatile var flashDisplayType: String = "White on Black"
+    @Volatile var flashDisplayType: String = "Black void, white letters"
     
     // Callbacks
     var onBackgroundUpdate: ((String) -> Unit)? = null
@@ -54,6 +55,7 @@ class ExperimentSystem : SystemBase() {
     var testingLayout: View? = null
     var resultLayout: View? = null
     var flashTextView: TextView? = null
+    var flashRootView: View? = null
     
     // Calibration
     var refreshRate: Float = 90f // Default, will be updated
@@ -137,6 +139,7 @@ class ExperimentSystem : SystemBase() {
         repetitions = reps
         waitingBackground = bg
         flashDisplayType = displayType
+        refreshFlashVisuals()
         currentRepetition = 0
         
         val messages = listOf("APPLE", "BANANA", "CHERRY", "DOG", "ELEPHANT", "FLOWER", "GRAPE", "HOUSE", "ISLAND", "JOKER")
@@ -189,23 +192,7 @@ class ExperimentSystem : SystemBase() {
         phaseStartTime = System.currentTimeMillis()
         flashStartNano = System.nanoTime()
         
-        // Background update for flashing
-        val flashBg = when {
-            flashDisplayType.contains("on Black") -> "Black void"
-            flashDisplayType.contains("on White") -> "White void"
-            else -> waitingBackground
-        }
-        val textColor = when {
-            flashDisplayType.contains("White on") -> android.graphics.Color.WHITE
-            flashDisplayType.contains("Black on") -> android.graphics.Color.BLACK
-            flashDisplayType.contains("Green on") -> android.graphics.Color.GREEN
-            flashDisplayType.contains("Red on") -> android.graphics.Color.RED
-            else -> android.graphics.Color.WHITE
-        }
-        activityScope.launch {
-            onBackgroundUpdate?.invoke(flashBg)
-            flashTextView?.setTextColor(textColor)
-        }
+        applyFlashVisualsForFlash()
         
         // Calculate frames: round(ms * rate / 1000)
         frameCounter = Math.max(1, Math.round(flashDurationMs * refreshRate / 1000f))
@@ -285,4 +272,66 @@ class ExperimentSystem : SystemBase() {
     
     // Helper to run on main thread for UI
     private val activityScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
+
+    fun refreshFlashVisuals() {
+        val config = currentFlashConfig()
+        activityScope.launch {
+            flashTextView?.setTextColor(config.textColor)
+            flashRootView?.setBackgroundColor(config.panelColor)
+        }
+    }
+
+    private fun applyFlashVisualsForFlash() {
+        val config = currentFlashConfig()
+        activityScope.launch {
+            onBackgroundUpdate?.invoke(config.backgroundLabel)
+            flashTextView?.setTextColor(config.textColor)
+            flashRootView?.setBackgroundColor(config.panelColor)
+        }
+    }
+
+    private fun currentFlashConfig(): FlashVisualConfig =
+        FlashVisualConfig.fromDescriptor(flashDisplayType, waitingBackground)
+}
+
+data class FlashVisualConfig(
+    val backgroundLabel: String,
+    val textColor: Int,
+    val panelColor: Int
+) {
+    companion object {
+        fun fromDescriptor(descriptor: String, waitingBackground: String): FlashVisualConfig {
+            val normalized = descriptor.lowercase()
+            val wantsWhiteLetters = normalized.contains("white letters")
+            val wantsBlackLetters = normalized.contains("black letters")
+
+            return when {
+                normalized.contains("black void") -> FlashVisualConfig(
+                    "Black void",
+                    Color.WHITE,
+                    Color.TRANSPARENT
+                )
+                normalized.contains("white void") -> FlashVisualConfig(
+                    "White void",
+                    Color.BLACK,
+                    Color.TRANSPARENT
+                )
+                wantsWhiteLetters -> FlashVisualConfig(
+                    waitingBackground,
+                    Color.WHITE,
+                    Color.TRANSPARENT
+                )
+                wantsBlackLetters -> FlashVisualConfig(
+                    waitingBackground,
+                    Color.BLACK,
+                    Color.TRANSPARENT
+                )
+                else -> FlashVisualConfig(
+                    waitingBackground,
+                    Color.WHITE,
+                    Color.TRANSPARENT
+                )
+            }
+        }
+    }
 }

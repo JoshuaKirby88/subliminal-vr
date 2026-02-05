@@ -221,6 +221,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 backgroundBtn.text = selectedOption
                 updateEnvironment(selectedOption)
                 experimentSystem.waitingBackground = selectedOption
+                experimentSystem.refreshFlashVisuals()
               }
 
               val displayOptions = resources.getStringArray(R.array.display_type_options)
@@ -230,6 +231,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                 val selectedOption = displayOptions[currentDisplayIndex]
                 displayBtn.text = selectedOption
                 experimentSystem.flashDisplayType = selectedOption
+                experimentSystem.refreshFlashVisuals()
               }
 
               startBtn?.setOnClickListener {
@@ -260,7 +262,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                   style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent))
             },
             panelSetupWithRootView = { rootView, _, _ ->
+              experimentSystem.flashRootView = rootView
               experimentSystem.flashTextView = rootView.findViewById(R.id.flash_text)
+              experimentSystem.refreshFlashVisuals()
             }
         )
     )
