@@ -75,6 +75,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private var animationStartTime: Long = 0
   private val activityScope = CoroutineScope(Dispatchers.Main)
   private val experimentSystem = ExperimentSystem()
+  private val headLockSystem = HeadLockSystem()
 
   override fun registerFeatures(): List<SpatialFeature> {
     val features = mutableListOf<SpatialFeature>(VRFeature(this))
@@ -111,6 +112,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     componentManager.registerComponent<LookAt>(LookAt.Companion)
     systemManager.registerSystem(LookAtSystem())
     systemManager.registerSystem(experimentSystem)
+    systemManager.registerSystem(headLockSystem)
 
     val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
         this.display
@@ -247,8 +249,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             layoutIdCreator = { R.layout.ui_test_panel },
             settingsCreator = {
               UIPanelSettings(
-                  shape = QuadShapeOptions(width = 1.0f, height = 0.5f),
-                  style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent))
+                  shape = QuadShapeOptions(width = 1.0f, height = 0.6f),
+                  style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent)
+              )
             },
             panelSetupWithRootView = { _, _, _ ->
             }
@@ -295,7 +298,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
     createFixationIfNeeded()
 
-    Entity.create(
+    headLockSystem.panelEntity = Entity.create(
         listOf(
             Panel(R.id.test_panel),
             Transform(Pose(Vector3(0f, 1.5f, -1.0f))),
