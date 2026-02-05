@@ -1,4 +1,4 @@
-package com.meta.spatial.samples.customcomponentsstarter
+package com.joshuakirby.subliminaltester
 
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.SystemBase
@@ -11,7 +11,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import kotlinx.coroutines.launch
-import com.meta.spatial.samples.customcomponentsstarter.R
+import com.joshuakirby.subliminaltester.R
 
 enum class ExperimentPhase {
     MENU,

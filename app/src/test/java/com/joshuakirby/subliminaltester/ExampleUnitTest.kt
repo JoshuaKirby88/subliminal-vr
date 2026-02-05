@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.meta.spatial.samples.customcomponentsstarter
+package com.joshuakirby.subliminaltester
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

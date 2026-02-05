@@ -12,13 +12,13 @@ plugins {
 }
 
 android {
-  namespace = "com.meta.spatial.samples.customcomponentsstarter"
+  namespace = "com.joshuakirby.subliminaltester"
   //noinspection GradleDependency
   compileSdk = 34
 
   defaultConfig {
-    applicationId = "com.meta.spatial.samples.customcomponentsstarter"
-    minSdk = 34
+    applicationId = "com.joshuakirby.subliminaltester"
+    minSdk = 32
     // HorizonOS is Android 14 (API level 34)
     //noinspection OldTargetApi,ExpiredTargetSdkVersion
     targetSdk = 34
@@ -35,10 +35,20 @@ android {
 
   lint { abortOnError = false }
 
+  signingConfigs {
+    create("release") {
+      storeFile = file("../keystore.jks")
+      storePassword = "lcOE5$$8afuxCo"
+      keyAlias = "key0"
+      keyPassword = "lcOE5$$8afuxCo"
+    }
+  }
+
   buildTypes {
     release {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      signingConfig = signingConfigs.getByName("release")
     }
   }
   buildFeatures { buildConfig = true }
@@ -84,7 +94,7 @@ spatial {
       }
     }
     hotReload {
-      appPackage.set("com.meta.spatial.samples.customcomponentsstarter")
+      appPackage.set("com.joshuakirby.subliminaltester")
       appMainActivity.set(".CustomComponentsStarterActivity")
       assetsDir.set(File("src/main"))
     }

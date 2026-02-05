@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.meta.spatial.samples.customcomponentsstarter
+package com.joshuakirby.subliminaltester
 
 import android.net.Uri
 import android.os.Bundle

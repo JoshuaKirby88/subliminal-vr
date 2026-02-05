@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.meta.spatial.samples.customcomponentsstarter
+package com.joshuakirby.subliminaltester
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -25,7 +25,7 @@ class ExampleInstrumentedTest {
     // Context of the app under test.
     val appContext = InstrumentationRegistry.getInstrumentation().targetContext
     assertEquals(
-        "com.meta.spatial.samples.customcomponentsstarter",
+        "com.joshuakirby.subliminaltester",
         appContext.packageName,
     )
   }
