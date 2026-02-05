@@ -34,15 +34,16 @@ class ExperimentSystem : SystemBase() {
     // Callbacks
     var onBackgroundUpdate: ((String) -> Unit)? = null
 
-    
     // Timing
     @Volatile private var frameCounter: Int = 0
     @Volatile private var waitTimeMs: Long = 0
     @Volatile private var phaseStartTime: Long = 0
+    @Volatile private var flashStartNano: Long = 0
     
     // Entities
     var panelEntity: Entity? = null
     var messageEntity: Entity? = null
+    var maskEntity: Entity? = null
     val maskEntities = mutableListOf<Entity>()
     val maskOffsets = mutableListOf<Vector3>()
     val fixationEntities = mutableListOf<Entity>()
@@ -63,11 +64,9 @@ class ExperimentSystem : SystemBase() {
         val targetRot = viewerPose.q
 
         // Layered depths to prevent Z-fighting
-        // Note: +Z is forward in this project's coordinate system (see HEAD_LOCK_DEV_LOG.md)
         val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.05f))
         val maskPosBase = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.00f))
         val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, 1.10f))
-
 
         // Head-lock logic for message
         messageEntity?.let {
@@ -75,6 +74,17 @@ class ExperimentSystem : SystemBase() {
             it.setComponent(Visible(isVisible))
             if (isVisible) {
                 it.setComponent(Transform(Pose(stimulusPos, targetRot)))
+            }
+        }
+
+        // Head-lock logic for mask
+        maskEntity?.let {
+            val isVisible = currentPhase == ExperimentPhase.MASKING
+            it.setComponent(Visible(isVisible))
+            if (isVisible) {
+                // Offset by -1, -0.5 to center the 2x1 quad (bottom-left anchored)
+                val pos = viewerPose.t + (viewerPose.q * Vector3(-1.0f, -0.5f, 1.08f))
+                it.setComponent(Transform(Pose(pos, targetRot)))
             }
         }
         
@@ -107,6 +117,8 @@ class ExperimentSystem : SystemBase() {
             ExperimentPhase.FLASHING -> {
                 frameCounter--
                 if (frameCounter <= 0) {
+                    val actualDurMs = (System.nanoTime() - flashStartNano) / 1_000_000.0
+                    Log.d("ExperimentSystem", "FLASH COMPLETED. Actual duration: ${"%.2f".format(actualDurMs)}ms")
                     startMasking()
                 }
             }
@@ -126,7 +138,6 @@ class ExperimentSystem : SystemBase() {
         waitingBackground = bg
         flashDisplayType = displayType
         currentRepetition = 0
-
         
         val messages = listOf("APPLE", "BANANA", "CHERRY", "DOG", "ELEPHANT", "FLOWER", "GRAPE", "HOUSE", "ISLAND", "JOKER")
         val correctMessage = messages.random()
@@ -144,6 +155,7 @@ class ExperimentSystem : SystemBase() {
             testingLayout?.tag = correctMessage
 
             panelEntity?.setComponent(Visible(false))
+            maskEntity?.setComponent(Visible(false))
             settingsLayout?.visibility = View.GONE
             testingLayout?.visibility = View.GONE
             resultLayout?.visibility = View.GONE
@@ -167,6 +179,7 @@ class ExperimentSystem : SystemBase() {
         }
         
         messageEntity?.setComponent(Visible(false))
+        maskEntity?.setComponent(Visible(false))
         // Visibility controlled by execute() based on currentPhase
         Log.d("ExperimentSystem", "Waiting for $waitTimeMs ms")
     }
@@ -174,6 +187,7 @@ class ExperimentSystem : SystemBase() {
     private fun startFlashing() {
         currentPhase = ExperimentPhase.FLASHING
         phaseStartTime = System.currentTimeMillis()
+        flashStartNano = System.nanoTime()
         
         // Background update for flashing
         val flashBg = when {
@@ -211,9 +225,9 @@ class ExperimentSystem : SystemBase() {
         }
         
         messageEntity?.setComponent(Visible(false))
-        // Visibility controlled by execute() based on currentPhase
+        maskEntity?.setComponent(Visible(true))
+        Log.d("ExperimentSystem", "Starting Backward Mask (150ms)")
     }
-
     
     private fun checkRepetitions() {
         currentRepetition++
@@ -226,6 +240,7 @@ class ExperimentSystem : SystemBase() {
     
     private fun startGuessing() {
         currentPhase = ExperimentPhase.GUESSING
+        maskEntity?.setComponent(Visible(false))
         // Visibility controlled by execute() based on currentPhase
         
         activityScope.launch {
@@ -236,11 +251,11 @@ class ExperimentSystem : SystemBase() {
     
     fun showResult(correct: Boolean) {
         currentPhase = ExperimentPhase.MENU
+        maskEntity?.setComponent(Visible(false))
         activityScope.launch {
             onBackgroundUpdate?.invoke(waitingBackground)
             panelEntity?.setComponent(Visible(true))
             testingLayout?.visibility = View.GONE
-
             resultLayout?.visibility = View.VISIBLE
             val resultText = resultLayout?.findViewById<TextView>(R.id.result_text)
             if (correct) {
@@ -255,6 +270,7 @@ class ExperimentSystem : SystemBase() {
     
     fun resetToMenu() {
         currentPhase = ExperimentPhase.MENU
+        maskEntity?.setComponent(Visible(false))
         activityScope.launch {
             onBackgroundUpdate?.invoke(waitingBackground)
             panelEntity?.setComponent(Visible(true))

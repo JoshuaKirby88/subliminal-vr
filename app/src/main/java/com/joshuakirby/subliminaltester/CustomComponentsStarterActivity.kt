@@ -106,6 +106,10 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    
+    // Request 120Hz for maximum timing precision
+    window.attributes.preferredRefreshRate = 120.0f
+    
     NetworkedAssetLoader.init(
         File(applicationContext.getCacheDir().canonicalPath),
         OkHttpAssetFetcher(),
@@ -173,7 +177,10 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
               // Initialize slider values
               durationSlider?.progress = 85 // 100ms
-              durationText?.text = "100"
+              val initialMs = 100
+              val initialFrames = Math.max(1, Math.round(initialMs * experimentSystem.refreshRate / 1000f))
+              durationText?.text = "$initialMs ($initialFrames fr)"
+              
               repetitionSlider?.progress = 0 // 1 repetition
               repetitionText?.text = "1"
 
@@ -184,7 +191,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                         progress: Int,
                         fromUser: Boolean
                     ) {
-                      durationText?.text = (progress + 15).toString()
+                      val ms = progress + 15
+                      val frames = Math.max(1, Math.round(ms * experimentSystem.refreshRate / 1000f))
+                      durationText?.text = "$ms ($frames fr)"
                     }
                     override fun onStartTrackingTouch(seekBar: SeekBar?) {}
                     override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -291,6 +300,19 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
         listOf(
             Panel(R.id.flash_panel),
             Transform(Pose(Vector3(0f, 0f, 1.10f))),
+            Visible(false)
+        )
+    )
+
+    experimentSystem.maskEntity = Entity.create(
+        listOf(
+            Mesh(Uri.parse("mesh://quad")),
+            Scale(Vector3(2.0f, 1.0f, 1f)),
+            Material().apply {
+                baseColor = Color4(0.5f, 0.5f, 0.5f, 1.0f) // Neutral Gray mask
+                unlit = true
+            },
+            Transform(Pose(Vector3(-1.0f, -0.5f, 1.08f))), // Offset to center the bottom-left anchored quad
             Visible(false)
         )
     )
