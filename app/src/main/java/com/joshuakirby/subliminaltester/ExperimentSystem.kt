@@ -24,6 +24,7 @@ enum class ExperimentPhase {
     FORWARD_MASKING,
     FLASHING,
     BACKWARD_MASKING,
+    PROCESSING,
     GUESSING
 }
 
@@ -46,6 +47,7 @@ class ExperimentSystem : SystemBase() {
     @Volatile var flashDisplayType: String = "Black void, white letters"
     @Volatile var forwardMaskDurationMs: Int = 50
     @Volatile var backwardMaskDurationMs: Int = 150
+    @Volatile var processingDelayMs: Int = 2000
     
     // Callbacks
     var onBackgroundUpdate: ((String) -> Unit)? = null
@@ -140,7 +142,8 @@ class ExperimentSystem : SystemBase() {
         // Head-lock logic for fixation
         for (i in fixationEntities.indices) {
             val entity = fixationEntities[i]
-            val isVisible = currentPhase == ExperimentPhase.WAITING
+            val isVisible =
+                currentPhase == ExperimentPhase.WAITING || currentPhase == ExperimentPhase.PROCESSING
             entity.setComponent(Visible(isVisible))
             if (isVisible) {
                 val offset = if (i < fixationOffsets.size) fixationOffsets[i] else Vector3(0f)
@@ -174,6 +177,11 @@ class ExperimentSystem : SystemBase() {
             ExperimentPhase.BACKWARD_MASKING -> {
                 if (System.currentTimeMillis() - phaseStartTime >= backwardMaskDurationMs) {
                     checkRepetitions()
+                }
+            }
+            ExperimentPhase.PROCESSING -> {
+                if (System.currentTimeMillis() - phaseStartTime >= processingDelayMs) {
+                    startGuessing()
                 }
             }
             ExperimentPhase.GUESSING -> { }
@@ -294,8 +302,19 @@ class ExperimentSystem : SystemBase() {
         if (currentRepetition < repetitions) {
             startWaiting()
         } else {
-            startGuessing()
+            startProcessing()
         }
+    }
+
+    private fun startProcessing() {
+        currentPhase = ExperimentPhase.PROCESSING
+        phaseStartTime = System.currentTimeMillis()
+        activityScope.launch {
+            onBackgroundUpdate?.invoke(waitingBackground)
+        }
+        messageEntity?.setComponent(Visible(false))
+        maskEntity?.setComponent(Visible(false))
+        Log.d("ExperimentSystem", "Processing delay for ${processingDelayMs}ms")
     }
     
     private fun startGuessing() {
