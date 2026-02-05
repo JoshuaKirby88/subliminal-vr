@@ -4,20 +4,16 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
-    android:background="@android:color/transparent">
+    android:background="#FFFF00">
 
     <TextView
         android:id="@+id/flash_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="MESSAGE"
-        android:textSize="120sp"
+        android:textSize="80sp"
         android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:shadowColor="#000000"
-        android:shadowDx="5"
-        android:shadowDy="5"
-        android:shadowRadius="5"
+        android:textColor="#000000"
         android:gravity="center"/>
 
 </LinearLayout>

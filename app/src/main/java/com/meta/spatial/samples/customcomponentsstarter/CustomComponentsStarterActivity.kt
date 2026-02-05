@@ -279,7 +279,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             Panel(R.id.flash_panel),
             PanelDimensions(Vector2(2f, 1f)),
             Scale(Vector3(1f)),
-            Transform(Pose(Vector3(0f, 0f, -1.05f))),
+            Transform(Pose(Vector3(0f, 0f, -0.8f))),
             Visible(false)
         )
     )
@@ -310,10 +310,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
       val mask =
           Entity.create(
-              listOf(
-                  Mesh(Uri.parse("mesh://quad")),
-                  Quad(),
-                  Scale(Vector3(width, height, 1f)),
+            listOf(
+                Mesh(Uri.parse("mesh://quad")),
+                Scale(Vector3(width, height, 1f)),
                   Material().apply {
                     baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 1.0f)
                     unlit = true
@@ -421,7 +420,6 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
         Entity.create(
             listOf(
                 Mesh(Uri.parse("mesh://quad")),
-                Quad(),
                 Scale(Vector3(0.3f, 0.02f, 1f)),
                 Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true }, // Neon Green
                 Transform(Pose(Vector3(0f, 0f, -1f))),
@@ -431,7 +429,6 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
         Entity.create(
             listOf(
                 Mesh(Uri.parse("mesh://quad")),
-                Quad(),
                 Scale(Vector3(0.02f, 0.3f, 1f)),
                 Material().apply { baseColor = Color4(0f, 1f, 0f, 1f); unlit = true },
                 Transform(Pose(Vector3(0f, 0f, -1f))),
@@ -463,7 +460,6 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
       val distractor = Entity.create(
           listOf(
               Mesh(Uri.parse("mesh://quad")),
-              Quad(),
               Scale(Vector3(size, size, 1f)),
               Material().apply {
                 baseColor = Color4(Math.random().toFloat(), Math.random().toFloat(), Math.random().toFloat(), 1.0f)

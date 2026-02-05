@@ -156,14 +156,17 @@ class ExperimentSystem : SystemBase() {
         currentPhase = ExperimentPhase.FLASHING
         phaseStartTime = System.currentTimeMillis()
         
+        // DEBUG: Force longer duration for visibility testing
+        val debugDuration = Math.max(flashDurationMs, 500)
+        
         // Calculate frames: round(ms * rate / 1000)
-        frameCounter = Math.max(1, Math.round(flashDurationMs * refreshRate / 1000f))
+        frameCounter = Math.max(1, Math.round(debugDuration * refreshRate / 1000f))
         
         setMaskVisible(false)
         setFixationVisible(false)
         messageEntity?.setComponent(Visible(true))
         
-        Log.d("ExperimentSystem", "Flashing for $frameCounter frames at $refreshRate Hz")
+        Log.d("ExperimentSystem", "Flashing for $frameCounter frames at $refreshRate Hz (Duration: $debugDuration ms)")
     }
     
     private fun startMasking() {
