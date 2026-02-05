@@ -44,6 +44,8 @@ import com.meta.spatial.toolkit.Panel
 import com.meta.spatial.toolkit.PanelStyleOptions
 import com.meta.spatial.toolkit.QuadShapeOptions
 import com.meta.spatial.toolkit.UIPanelSettings
+import com.meta.spatial.toolkit.UIPanelRenderOptions
+import com.meta.spatial.toolkit.PanelRenderMode
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.TextView
@@ -249,11 +251,15 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             layoutIdCreator = { R.layout.ui_test_panel },
             settingsCreator = {
               UIPanelSettings(
-                  shape = QuadShapeOptions(width = 1.0f, height = 0.6f),
+                  shape = QuadShapeOptions(width = 0.5f, height = 0.3f),
                   style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent)
               )
             },
-            panelSetupWithRootView = { _, _, _ ->
+            panelSetupWithRootView = { rootView, _, _ ->
+              rootView.setBackgroundColor(android.graphics.Color.RED)
+              val tv = rootView.findViewById<TextView>(R.id.test_text_view)
+              tv?.text = "VISIBLE"
+              tv?.setTextColor(android.graphics.Color.WHITE)
             }
         )
     )
@@ -301,7 +307,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     headLockSystem.panelEntity = Entity.create(
         listOf(
             Panel(R.id.test_panel),
-            Transform(Pose(Vector3(0f, 1.5f, -1.0f))),
+            Transform(Pose(Vector3(0f, 1.2f, 0.5f))), // Spawning slightly in front
             Visible(true)
         )
     )
