@@ -62,6 +62,8 @@ class ExperimentSystem : SystemBase() {
         val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.05f))
 
         // Head-lock logic for message
+        // FORCE VISIBLE ALWAYS (DEBUG MODE)
+        messageEntity?.setComponent(Visible(true))
         messageEntity?.let {
             it.setComponent(Transform(Pose(stimulusPos, targetRot)))
         }
@@ -84,6 +86,8 @@ class ExperimentSystem : SystemBase() {
             }
         }
 
+        // Disable state machine logic that hides the message
+        /*
         when (currentPhase) {
             ExperimentPhase.MENU -> { }
             ExperimentPhase.WAITING -> {
@@ -104,6 +108,7 @@ class ExperimentSystem : SystemBase() {
             }
             ExperimentPhase.GUESSING -> { }
         }
+        */
     }
     
     fun startExperiment(duration: Int, reps: Int, message: String) {
@@ -222,7 +227,7 @@ class ExperimentSystem : SystemBase() {
             testingLayout?.visibility = View.GONE
             resultLayout?.visibility = View.GONE
         }
-        messageEntity?.setComponent(Visible(false))
+        // messageEntity?.setComponent(Visible(false)) // DISABLED FOR DEBUG
         setMaskVisible(false)
         setFixationVisible(false)
     }

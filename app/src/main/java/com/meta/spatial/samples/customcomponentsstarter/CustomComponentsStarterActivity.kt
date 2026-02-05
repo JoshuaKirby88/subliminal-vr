@@ -280,7 +280,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             PanelDimensions(Vector2(2f, 1f)),
             Scale(Vector3(1f)),
             Transform(Pose(Vector3(0f, 0f, -0.8f))),
-            Visible(false)
+            Visible(true) // FORCE VISIBLE ON CREATION
         )
     )
 
