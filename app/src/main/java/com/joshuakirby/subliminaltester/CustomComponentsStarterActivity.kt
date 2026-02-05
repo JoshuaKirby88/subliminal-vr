@@ -33,19 +33,15 @@ import com.meta.spatial.toolkit.Material
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
 import com.meta.spatial.toolkit.Quad
-import com.meta.spatial.toolkit.PanelDimensions
-import com.meta.spatial.core.Vector2
 import android.view.View
 import android.animation.ValueAnimator
 import android.view.animation.LinearInterpolator
-import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
 import com.meta.spatial.toolkit.Panel
 import com.meta.spatial.toolkit.PanelStyleOptions
 import com.meta.spatial.toolkit.QuadShapeOptions
 import com.meta.spatial.toolkit.UIPanelSettings
-import com.meta.spatial.toolkit.UIPanelRenderOptions
-import com.meta.spatial.toolkit.PanelRenderMode
+import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.TextView
@@ -62,6 +58,8 @@ import kotlinx.coroutines.launch
 
 // default activity
 class CustomComponentsStarterActivity : AppSystemActivity() {
+  private val panelWidthMeters = 2.3f
+  private val panelHeightMeters = 1.95f
   private var gltfxEntity: Entity? = null
   private var skyboxEntity: Entity? = null
   private var environmentEntity: Entity? = null
@@ -144,6 +142,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
       // Link the panel entity from GLXF to our registration
       val panelEntity = composition.getNodeByName("Panel").entity
       panelEntity?.setComponent(Panel(R.id.main_panel))
+      panelEntity?.setComponent(Scale(Vector3(panelWidthMeters, panelHeightMeters, 1f)))
       experimentSystem.panelEntity = panelEntity
 
       updateEnvironment("Indoor room")
@@ -158,7 +157,7 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             layoutIdCreator = { R.layout.ui_example },
             settingsCreator = {
               UIPanelSettings(
-                  shape = QuadShapeOptions(width = 2.0f, height = 1.5f),
+                  shape = QuadShapeOptions(width = panelWidthMeters, height = panelHeightMeters),
                   style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent))
             },
             panelSetupWithRootView = { rootView, _, _ ->

@@ -55,8 +55,10 @@
                 android:progress="85"/> <!-- 15 + 85 = 100ms default -->
             <TextView
                 android:id="@+id/duration_value_text"
-                android:layout_width="50dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minWidth="120dp"
+                android:maxLines="1"
                 android:text="100"
                 android:textColor="#FFFFFF"
                 android:gravity="end"/>
