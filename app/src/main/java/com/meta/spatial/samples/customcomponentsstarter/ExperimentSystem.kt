@@ -57,21 +57,26 @@ class ExperimentSystem : SystemBase() {
         val targetRot = viewerPose.q
 
         // Layered depths to prevent Z-fighting
-        val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.0f))
-        val maskPosBase = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -0.95f))
-        val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.05f))
+        val fixationPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.05f))
+        val maskPosBase = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.00f))
+        val stimulusPos = viewerPose.t + (viewerPose.q * Vector3(0f, 0f, -1.10f))
+
 
         // Head-lock logic for message
-        // FORCE VISIBLE ALWAYS (DEBUG MODE)
-        messageEntity?.setComponent(Visible(true))
         messageEntity?.let {
-            it.setComponent(Transform(Pose(stimulusPos, targetRot)))
+            val isVisible = currentPhase == ExperimentPhase.FLASHING
+            it.setComponent(Visible(isVisible))
+            if (isVisible) {
+                it.setComponent(Transform(Pose(stimulusPos, targetRot)))
+            }
         }
         
         // Head-lock logic for masks
         for (i in maskEntities.indices) {
             val entity = maskEntities[i]
-            if (entity.getComponent<Visible>()?.isVisible == true) {
+            val isVisible = currentPhase == ExperimentPhase.MASKING || (currentPhase == ExperimentPhase.WAITING && i < 5) // Show a few masks during wait for reference
+            entity.setComponent(Visible(isVisible))
+            if (isVisible) {
                 val offset = maskOffsets[i]
                 val pos = maskPosBase + (viewerPose.q * Vector3(offset.x, offset.y, 0f))
                 entity.setComponent(Transform(Pose(pos, targetRot)))
@@ -81,13 +86,14 @@ class ExperimentSystem : SystemBase() {
         // Head-lock logic for fixation
         for (i in fixationEntities.indices) {
             val entity = fixationEntities[i]
-            if (entity.getComponent<Visible>()?.isVisible == true) {
+            val isVisible = currentPhase == ExperimentPhase.WAITING
+            entity.setComponent(Visible(isVisible))
+            if (isVisible) {
                 entity.setComponent(Transform(Pose(fixationPos, targetRot)))
             }
         }
 
-        // Disable state machine logic that hides the message
-        /*
+        // State machine logic
         when (currentPhase) {
             ExperimentPhase.MENU -> { }
             ExperimentPhase.WAITING -> {
@@ -108,7 +114,6 @@ class ExperimentSystem : SystemBase() {
             }
             ExperimentPhase.GUESSING -> { }
         }
-        */
     }
     
     fun startExperiment(duration: Int, reps: Int, message: String) {
@@ -161,18 +166,14 @@ class ExperimentSystem : SystemBase() {
         currentPhase = ExperimentPhase.FLASHING
         phaseStartTime = System.currentTimeMillis()
         
-        // DEBUG: Force longer duration for visibility testing
-        val debugDuration = Math.max(flashDurationMs, 500)
-        
         // Calculate frames: round(ms * rate / 1000)
-        frameCounter = Math.max(1, Math.round(debugDuration * refreshRate / 1000f))
+        frameCounter = Math.max(1, Math.round(flashDurationMs * refreshRate / 1000f))
         
-        setMaskVisible(false)
-        setFixationVisible(false)
         messageEntity?.setComponent(Visible(true))
         
-        Log.d("ExperimentSystem", "Flashing for $frameCounter frames at $refreshRate Hz (Duration: $debugDuration ms)")
+        Log.d("ExperimentSystem", "Flashing for $frameCounter frames at $refreshRate Hz (Duration: $flashDurationMs ms)")
     }
+
     
     private fun startMasking() {
         currentPhase = ExperimentPhase.MASKING
@@ -227,10 +228,11 @@ class ExperimentSystem : SystemBase() {
             testingLayout?.visibility = View.GONE
             resultLayout?.visibility = View.GONE
         }
-        // messageEntity?.setComponent(Visible(false)) // DISABLED FOR DEBUG
+        messageEntity?.setComponent(Visible(false))
         setMaskVisible(false)
         setFixationVisible(false)
     }
+
     
     private fun setMaskVisible(visible: Boolean) {
         for (mask in maskEntities) {

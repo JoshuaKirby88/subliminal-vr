@@ -77,9 +77,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
   private var animationStartTime: Long = 0
   private val activityScope = CoroutineScope(Dispatchers.Main)
   private val experimentSystem = ExperimentSystem()
-  private val headLockSystem = HeadLockSystem()
 
   override fun registerFeatures(): List<SpatialFeature> {
+
     val features = mutableListOf<SpatialFeature>(VRFeature(this))
     if (BuildConfig.DEBUG) {
       features.add(CastInputForwardFeature(this))
@@ -114,9 +114,9 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
     componentManager.registerComponent<LookAt>(LookAt.Companion)
     systemManager.registerSystem(LookAtSystem())
     systemManager.registerSystem(experimentSystem)
-    systemManager.registerSystem(headLockSystem)
 
     val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+
         this.display
     } else {
         @Suppress("DEPRECATION")
@@ -245,25 +245,10 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
             panelSetupWithRootView = { rootView, _, _ ->
               experimentSystem.flashTextView = rootView.findViewById(R.id.flash_text)
             }
-        ),
-        LayoutXMLPanelRegistration(
-            R.id.test_panel,
-            layoutIdCreator = { R.layout.ui_test_panel },
-            settingsCreator = {
-              UIPanelSettings(
-                  shape = QuadShapeOptions(width = 0.5f, height = 0.3f),
-                  style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent)
-              )
-            },
-            panelSetupWithRootView = { rootView, _, _ ->
-              rootView.setBackgroundColor(android.graphics.Color.RED)
-              val tv = rootView.findViewById<TextView>(R.id.test_text_view)
-              tv?.text = "VISIBLE"
-              tv?.setTextColor(android.graphics.Color.WHITE)
-            }
         )
     )
   }
+
 
 
   override fun onSceneReady() {
@@ -304,14 +289,8 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
 
     createFixationIfNeeded()
 
-    headLockSystem.panelEntity = Entity.create(
-        listOf(
-            Panel(R.id.test_panel),
-            Transform(Pose(Vector3(0f, 1.2f, 0.5f))), // Spawning slightly in front
-            Visible(true)
-        )
-    )
     createMaskEntities()
+
     
     // Ensure lists are synchronized
     experimentSystem.fixationEntities.clear()
