@@ -118,7 +118,7 @@
             <TextView
                 android:layout_width="150dp"
                 android:layout_height="wrap_content"
-                android:text="Forward Mask:"
+                android:text="Forward Mask (10-200 ms):"
                 android:textColor="#FFFFFF"/>
             <SeekBar
                 android:id="@+id/forward_mask_slider"
@@ -146,7 +146,7 @@
             <TextView
                 android:layout_width="150dp"
                 android:layout_height="wrap_content"
-                android:text="Backward Mask:"
+                android:text="Backward Mask (10-250 ms):"
                 android:textColor="#FFFFFF"/>
             <SeekBar
                 android:id="@+id/backward_mask_slider"

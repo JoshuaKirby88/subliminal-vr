@@ -35,6 +35,12 @@ class ExperimentSystem : SystemBase() {
         const val FLASH_MASK_DEPTH_METERS = 1.08f
         const val STIMULUS_DEPTH_METERS = 1.10f
         const val FIXATION_DEPTH_METERS = 1.05f
+        const val MIN_FORWARD_MASK_MS = 10
+        const val MAX_FORWARD_MASK_MS = 200
+        const val MIN_BACKWARD_MASK_MS = 10
+        const val MAX_BACKWARD_MASK_MS = 250
+        const val DEFAULT_FORWARD_MASK_MS = 50
+        const val DEFAULT_BACKWARD_MASK_MS = 150
     }
 
     @Volatile var currentPhase = ExperimentPhase.MENU
@@ -45,8 +51,14 @@ class ExperimentSystem : SystemBase() {
     @Volatile var currentRepetition: Int = 0
     @Volatile var waitingBackground: String = "Indoor room"
     @Volatile var flashDisplayType: String = "Black void, white letters"
-    @Volatile var forwardMaskDurationMs: Int = 50
-    @Volatile var backwardMaskDurationMs: Int = 150
+    @Volatile var forwardMaskDurationMs: Int = DEFAULT_FORWARD_MASK_MS
+        set(value) {
+            field = value.coerceIn(MIN_FORWARD_MASK_MS, MAX_FORWARD_MASK_MS)
+        }
+    @Volatile var backwardMaskDurationMs: Int = DEFAULT_BACKWARD_MASK_MS
+        set(value) {
+            field = value.coerceIn(MIN_BACKWARD_MASK_MS, MAX_BACKWARD_MASK_MS)
+        }
     @Volatile var processingDelayMs: Int = 2000
     
     // Callbacks

@@ -8,6 +8,7 @@
 package com.joshuakirby.subliminaltester
 
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import com.meta.spatial.castinputforward.CastInputForwardFeature
 import com.meta.spatial.core.Color4
@@ -189,6 +190,11 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
               repetitionSlider?.progress = 0 // 1 repetition
               repetitionText?.text = "1"
 
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                forwardMaskSlider?.min = ExperimentSystem.MIN_FORWARD_MASK_MS
+                backwardMaskSlider?.min = ExperimentSystem.MIN_BACKWARD_MASK_MS
+              }
+
               forwardMaskSlider?.progress = experimentSystem.forwardMaskDurationMs
               forwardMaskText?.text = "${experimentSystem.forwardMaskDurationMs} ms"
               backwardMaskSlider?.progress = experimentSystem.backwardMaskDurationMs
@@ -256,8 +262,15 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                         progress: Int,
                         fromUser: Boolean
                     ) {
-                      forwardMaskText?.text = "$progress ms"
-                      experimentSystem.forwardMaskDurationMs = progress
+                      val clamped =
+                          progress.coerceIn(
+                              ExperimentSystem.MIN_FORWARD_MASK_MS,
+                              ExperimentSystem.MAX_FORWARD_MASK_MS)
+                      if (clamped != progress) {
+                        seekBar?.progress = clamped
+                      }
+                      forwardMaskText?.text = "$clamped ms"
+                      experimentSystem.forwardMaskDurationMs = clamped
                     }
                     override fun onStartTrackingTouch(seekBar: SeekBar?) {}
                     override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -270,8 +283,15 @@ class CustomComponentsStarterActivity : AppSystemActivity() {
                         progress: Int,
                         fromUser: Boolean
                     ) {
-                      backwardMaskText?.text = "$progress ms"
-                      experimentSystem.backwardMaskDurationMs = progress
+                      val clamped =
+                          progress.coerceIn(
+                              ExperimentSystem.MIN_BACKWARD_MASK_MS,
+                              ExperimentSystem.MAX_BACKWARD_MASK_MS)
+                      if (clamped != progress) {
+                        seekBar?.progress = clamped
+                      }
+                      backwardMaskText?.text = "$clamped ms"
+                      experimentSystem.backwardMaskDurationMs = clamped
                     }
                     override fun onStartTrackingTouch(seekBar: SeekBar?) {}
                     override fun onStopTrackingTouch(seekBar: SeekBar?) {}
