@@ -90,6 +90,13 @@ class ExperimentSystem : SystemBase() {
     private var guessPhaseStartTime: Long = 0
     private val waitDurationsMs = mutableListOf<Long>()
     private val flashDurationsActual = mutableListOf<Double>()
+    private val flashFrameIntervalsPerFlash = mutableListOf<List<Double>>()
+    private val flashFrameTargetFrames = mutableListOf<Int>()
+    private val currentFlashFrameIntervals = mutableListOf<Double>()
+    private var currentFlashTargetFrames: Int = 0
+    private var currentFlashTargetDurationMs: Int = 0
+    private var lastFlashFrameTimestampNs: Long = 0L
+    private var firstFrameLatencyCaptured: Boolean = false
     private var currentTargetMessage: String? = null
     private var currentChoices: List<String> = emptyList()
     private var lastFlashBackground: String = ""
@@ -178,11 +185,12 @@ class ExperimentSystem : SystemBase() {
                 }
             }
             ExperimentPhase.FLASHING -> {
+                recordFlashFrameTimingSample()
                 frameCounter--
                 if (frameCounter <= 0) {
                     val actualDurMs = (System.nanoTime() - flashStartNano) / 1_000_000.0
                     flashDurationsActual.add(actualDurMs)
-                    Log.d("ExperimentSystem", "FLASH COMPLETED. Actual duration: ${"%.2f".format(actualDurMs)}ms")
+                    finalizeFlashTiming(actualDurMs)
                     startBackwardMasking()
                 }
             }
@@ -211,6 +219,8 @@ class ExperimentSystem : SystemBase() {
         currentRepetition = 0
         waitDurationsMs.clear()
         flashDurationsActual.clear()
+        flashFrameIntervalsPerFlash.clear()
+        flashFrameTargetFrames.clear()
         trialStartTimestamp = System.currentTimeMillis()
         trialCounter++
         
@@ -268,15 +278,22 @@ class ExperimentSystem : SystemBase() {
         currentPhase = ExperimentPhase.FLASHING
         phaseStartTime = System.currentTimeMillis()
         flashStartNano = System.nanoTime()
-        
+
         applyFlashVisualsForFlash()
-        
+
         // Calculate frames: round(ms * rate / 1000)
-        frameCounter = Math.max(1, Math.round(flashDurationMs * refreshRate / 1000f))
-        
+        currentFlashTargetDurationMs = flashDurationMs
+        currentFlashTargetFrames = Math.max(1, Math.round(flashDurationMs * refreshRate / 1000f))
+        frameCounter = currentFlashTargetFrames
+        currentFlashFrameIntervals.clear()
+        firstFrameLatencyCaptured = false
+        lastFlashFrameTimestampNs = 0L
+
         messageEntity?.setComponent(Visible(true))
-        
-        Log.d("ExperimentSystem", "Flashing for $frameCounter frames at $refreshRate Hz (Duration: $flashDurationMs ms)")
+
+        Log.d(
+            "ExperimentSystem",
+            "Flashing for $currentFlashTargetFrames frames at $refreshRate Hz (Duration: ${flashDurationMs} ms)")
     }
 
     
@@ -366,6 +383,8 @@ class ExperimentSystem : SystemBase() {
                 repetitions = repetitions,
                 waitDurationsMs = waitDurationsMs.toList(),
                 flashDurationsMs = flashDurationsActual.toList(),
+                flashFrameIntervalsMs = flashFrameIntervalsPerFlash.map { it.toList() },
+                flashFrameTargets = flashFrameTargetFrames.toList(),
                 targetMessage = currentTargetMessage.orEmpty(),
                 choices = choicesSnapshot,
                 guess = guess,
@@ -476,6 +495,36 @@ class ExperimentSystem : SystemBase() {
 
     private fun randomRange(min: Float, max: Float): Float {
         return min + random.nextFloat() * (max - min)
+    }
+
+    private fun recordFlashFrameTimingSample() {
+        if (currentPhase != ExperimentPhase.FLASHING) return
+        val nowNs = System.nanoTime()
+        if (!firstFrameLatencyCaptured) {
+            val firstFrameMs = (nowNs - flashStartNano) / 1_000_000.0
+            currentFlashFrameIntervals.add(firstFrameMs)
+            firstFrameLatencyCaptured = true
+        } else if (lastFlashFrameTimestampNs != 0L) {
+            val deltaMs = (nowNs - lastFlashFrameTimestampNs) / 1_000_000.0
+            currentFlashFrameIntervals.add(deltaMs)
+        }
+        lastFlashFrameTimestampNs = nowNs
+    }
+
+    private fun finalizeFlashTiming(actualDurMs: Double) {
+        flashFrameIntervalsPerFlash.add(currentFlashFrameIntervals.toList())
+        flashFrameTargetFrames.add(currentFlashTargetFrames)
+        val intervalSummary =
+            if (currentFlashFrameIntervals.isEmpty()) "none"
+            else currentFlashFrameIntervals.joinToString(", ") { "%.2f".format(it) }
+        Log.d(
+            "ExperimentSystem",
+            "FLASH COMPLETED. Target ${currentFlashTargetDurationMs}ms (~${currentFlashTargetFrames} fr) vs actual ${"%.2f".format(actualDurMs)}ms; intervals [$intervalSummary]")
+        currentFlashFrameIntervals.clear()
+        currentFlashTargetFrames = 0
+        currentFlashTargetDurationMs = 0
+        lastFlashFrameTimestampNs = 0L
+        firstFrameLatencyCaptured = false
     }
 }
 

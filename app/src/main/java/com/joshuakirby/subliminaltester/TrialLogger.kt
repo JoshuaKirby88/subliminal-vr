@@ -49,6 +49,8 @@ data class TrialLogEntry(
     val repetitions: Int,
     val waitDurationsMs: List<Long>,
     val flashDurationsMs: List<Double>,
+    val flashFrameIntervalsMs: List<List<Double>>,
+    val flashFrameTargets: List<Int>,
     val targetMessage: String,
     val choices: List<String>,
     val guess: String,
@@ -70,6 +72,10 @@ data class TrialLogEntry(
                 repetitions.toString(),
                 waitDurationsMs.joinToString("|"),
                 flashDurationsMs.joinToString("|") { "%.2f".format(it) },
+                flashFrameTargets.joinToString("|"),
+                flashFrameIntervalsMs.joinToString("|") { run ->
+                    run.joinToString(";") { "%.2f".format(it) }
+                },
                 targetMessage,
                 choices.joinToString("|"),
                 guess,
@@ -94,6 +100,8 @@ data class TrialLogEntry(
                     "repetitions",
                     "wait_durations_ms",
                     "flash_durations_ms",
+                    "flash_frame_targets",
+                    "flash_frame_intervals_ms",
                     "target_message",
                     "choices",
                     "guess",
